@@ -1,0 +1,30 @@
+package hasher
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+)
+
+var base62 = []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+// ShortCode8 returns an 8-char Base62 code from a URL using a secret key.
+func ShortCode8(url string) string {
+	mac := hmac.New(sha256.New, []byte("12412"))
+	mac.Write([]byte(url))
+	sum := mac.Sum(nil) // 32 bytes
+
+	// Use first 6 bytes (48 bits)
+	var v uint64 = uint64(sum[0])<<40 | uint64(sum[1])<<32 | uint64(sum[2])<<24 |
+		uint64(sum[3])<<16 | uint64(sum[4])<<8 | uint64(sum[5])
+
+	// Map 48-bit value into 62^8 space and encode Base62 (8 chars)
+	const space = 218340105584896 // 62^8
+	v = v % space
+
+	buf := make([]byte, 8)
+	for i := 7; i >= 0; i-- {
+		buf[i] = base62[v%62]
+		v /= 62
+	}
+	return string(buf)
+}
