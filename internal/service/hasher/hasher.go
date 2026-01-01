@@ -7,10 +7,18 @@ import (
 
 var base62 = []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
+type Hasher struct {
+	Secret string
+}
+
+func NewHasher(secret string) *Hasher {
+	return &Hasher{Secret: secret}
+}
+
 // ShortCode8 returns an 8-char Base62 code from a URL using a secret key.
-func ShortCode8(url string) string {
-	mac := hmac.New(sha256.New, []byte("12412"))
-	mac.Write([]byte(url))
+func (h *Hasher) GetHash(input string) string {
+	mac := hmac.New(sha256.New, []byte(h.Secret))
+	mac.Write([]byte(input))
 	sum := mac.Sum(nil) // 32 bytes
 
 	// Use first 6 bytes (48 bits)
