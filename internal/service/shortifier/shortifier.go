@@ -28,9 +28,11 @@ func NewShortifier(hashFunc Hasher, store Repository) *Shortifier {
 }
 
 func (s *Shortifier) ShortifyUrl(url string) (string, bool, error) {
-	if !isValidURL(url) {
-		return "", false, errors.New("url in wrong format")
-	}
+	// if !isValidURL(url) {
+	// 	return "", false, errors.New("url in wrong format")
+	// }
+
+	url = strings.TrimSpace(url)
 
 	shortUrl := s.hashFunc.GetHash(url)
 
@@ -40,6 +42,8 @@ func (s *Shortifier) ShortifyUrl(url string) (string, bool, error) {
 }
 
 func (s *Shortifier) ResolveShortUrl(shortUrl string) (string, error) {
+
+	shortUrl = strings.TrimSpace(shortUrl)
 
 	url, err := s.store.ResolveShortUrl(shortUrl)
 
