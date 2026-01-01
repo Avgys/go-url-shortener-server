@@ -15,7 +15,6 @@ func NewHasher(secret string) *Hasher {
 	return &Hasher{Secret: secret}
 }
 
-// ShortCode8 returns an 8-char Base62 code from a URL using a secret key.
 func (h *Hasher) GetHash(input string) string {
 	mac := hmac.New(sha256.New, []byte(h.Secret))
 	mac.Write([]byte(input))
