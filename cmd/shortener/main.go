@@ -19,7 +19,7 @@ func run() error {
 
 	store := repository.NewStore()
 	hashFunc := hasher.NewHasher("SomeSecret")
-	fizzBuzzService := shortifier.NewShortifier(hashFunc, store, "http://"+cfg.Handlers.ServerAddr)
+	shortifier := shortifier.NewShortifier(hashFunc, store, "http://"+cfg.Handlers.ServerAddr)
 
-	return handler.Serve(cfg.Handlers, fizzBuzzService)
+	return handler.Serve(cfg.Handlers, shortifier)
 }

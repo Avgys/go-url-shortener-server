@@ -13,8 +13,8 @@ import (
 )
 
 type Shortifier interface {
-	ResolveShortUrl(shortUrl string) (string, error)
-	ShortifyUrl(url string) (string, bool, error)
+	ResolveShortURL(shortURL string) (string, error)
+	ShortifyURL(url string) (string, bool, error)
 }
 
 type handlers struct {
@@ -37,7 +37,7 @@ func Serve(cfg config.Config, shortifier Shortifier) error {
 
 func newRouter(h *handlers) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /", h.ShortifyUrl)
+	mux.HandleFunc("POST /", h.ShortifyURL)
 	mux.HandleFunc("GET /{url}", h.Redirect)
 
 	return mux
@@ -47,12 +47,12 @@ func (h *handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	var url string
 	var err error
 
-	if url, err = getUriParam(r); err != nil {
+	if url, err = getURIParam(r); err != nil {
 		writeError(w, r, err)
 		return
 	}
 
-	if url, err = h.shortifier.ResolveShortUrl(url); err != nil {
+	if url, err = h.shortifier.ResolveShortURL(url); err != nil {
 		writeError(w, r, err)
 		return
 	}
@@ -62,7 +62,7 @@ func (h *handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	writeResponse(w, "", http.StatusTemporaryRedirect)
 }
 
-func (h *handlers) ShortifyUrl(w http.ResponseWriter, r *http.Request) {
+func (h *handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	var url string
 	var err error
 
@@ -73,7 +73,7 @@ func (h *handlers) ShortifyUrl(w http.ResponseWriter, r *http.Request) {
 
 	isCreated := false
 
-	if url, isCreated, err = h.shortifier.ShortifyUrl(url); err != nil {
+	if url, isCreated, err = h.shortifier.ShortifyURL(url); err != nil {
 		writeError(w, r, err)
 		return
 	}
@@ -88,7 +88,7 @@ func (h *handlers) ShortifyUrl(w http.ResponseWriter, r *http.Request) {
 	writeResponse(w, url, status)
 }
 
-func getUriParam(r *http.Request) (string, error) {
+func getURIParam(r *http.Request) (string, error) {
 	urlParam := r.PathValue("url")
 
 	if urlParam == "" {
@@ -101,7 +101,7 @@ func getUriParam(r *http.Request) (string, error) {
 func getRequestBody(r *http.Request) (string, error) {
 
 	if !strings.Contains(r.Header.Get("Content-type"), "text/plain") {
-		return "", fmt.Errorf("Wrong content-type %v", r.Header.Get("Content-type"))
+		return "", fmt.Errorf("wrong content-type %v", r.Header.Get("Content-type"))
 	}
 
 	buffer := make([]byte, 128)
@@ -109,9 +109,9 @@ func getRequestBody(r *http.Request) (string, error) {
 	var err error
 
 	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
-		fmt.Printf("Got error %v\n", err)
+		fmt.Printf("got error %v\n", err)
 
-		return "", errors.New("Got error reading url")
+		return "", errors.New("got error reading url")
 	}
 
 	url := string(buffer[:readBytes])

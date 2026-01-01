@@ -21,7 +21,7 @@ func (h *Hasher) GetHash(input string) string {
 	sum := mac.Sum(nil) // 32 bytes
 
 	// Use first 6 bytes (48 bits)
-	var v uint64 = uint64(sum[0])<<40 | uint64(sum[1])<<32 | uint64(sum[2])<<24 |
+	v := uint64(sum[0])<<40 | uint64(sum[1])<<32 | uint64(sum[2])<<24 |
 		uint64(sum[3])<<16 | uint64(sum[4])<<8 | uint64(sum[5])
 
 	// Map 48-bit value into 62^8 space and encode Base62 (8 chars)

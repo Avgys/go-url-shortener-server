@@ -14,8 +14,8 @@ type Hasher interface {
 }
 
 type Repository interface {
-	StoreUrl(url string, urlHash string) bool
-	ResolveShortUrl(shortUrl string) (string, error)
+	StoreURL(url string, urlHash string) bool
+	ResolveShortURL(shortURL string) (string, error)
 }
 
 type Shortifier struct {
@@ -29,29 +29,29 @@ func NewShortifier(hashFunc Hasher, store Repository, domain string) *Shortifier
 	return &Shortifier{hashFunc: hashFunc, store: store, domain: domain}
 }
 
-func (s *Shortifier) ShortifyUrl(url string) (string, bool, error) {
+func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
 	if !isValidURL(url) {
 		return "", false, errors.New("url in wrong format")
 	}
 
 	url = strings.TrimSpace(url)
 
-	shortUrl := s.hashFunc.GetHash(url)
+	shortURL := s.hashFunc.GetHash(url)
 
-	isCreated := s.store.StoreUrl(url, shortUrl)
-	readyToUseUrl := s.domain + "/" + shortUrl
-	return readyToUseUrl, isCreated, nil
+	isCreated := s.store.StoreURL(url, shortURL)
+	readyToUseURL := s.domain + "/" + shortURL
+	return readyToUseURL, isCreated, nil
 }
 
-func (s *Shortifier) ResolveShortUrl(shortUrl string) (string, error) {
+func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 
-	shortUrl = strings.TrimSpace(shortUrl)
+	shortURL = strings.TrimSpace(shortURL)
 
-	url, err := s.store.ResolveShortUrl(shortUrl)
+	url, err := s.store.ResolveShortURL(shortURL)
 
 	if err != nil {
-		if errors.Is(err, repository.StoreNotFoundErr) {
-			return "", fmt.Errorf("Counldn't find url: %w", err)
+		if errors.Is(err, repository.ErrStoreNotFound) {
+			return "", fmt.Errorf("counldn't find url: %w", err)
 		}
 	}
 

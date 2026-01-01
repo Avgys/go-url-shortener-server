@@ -18,10 +18,10 @@ func NewStore() *Store {
 }
 
 var (
-	StoreNotFoundErr = errors.New("Url not found in store")
+	ErrStoreNotFound = errors.New("url not found in store")
 )
 
-func (s *Store) StoreUrl(url string, urlHash string) bool {
+func (s *Store) StoreURL(url string, urlHash string) bool {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -34,14 +34,14 @@ func (s *Store) StoreUrl(url string, urlHash string) bool {
 	return true
 }
 
-func (s *Store) ResolveShortUrl(shortUrl string) (string, error) {
+func (s *Store) ResolveShortURL(shortURL string) (string, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	url := s.data[shortUrl]
+	url := s.data[shortURL]
 
 	if url == "" {
-		return "", StoreNotFoundErr
+		return "", ErrStoreNotFound
 	}
 
 	return url, nil
