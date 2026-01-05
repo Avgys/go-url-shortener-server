@@ -25,12 +25,20 @@ type httpWant struct {
 	body string
 }
 
-func GetRandomUrl(n int) string {
+func GetRandomURL(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+const shortHash = "short-hash"
+
+type mockHasher struct{}
+
+func (m *mockHasher) GetHash(input string) string {
+	return shortHash
 }
 
 type innerStructure struct {
@@ -45,6 +53,8 @@ func Test_handlers_Redirect(t *testing.T) {
 	type caseWant struct {
 		headerValue string
 	}
+
+	host := "http://localhost:8080"
 
 	tests := []struct {
 		name             string
@@ -70,10 +80,13 @@ func Test_handlers_Redirect(t *testing.T) {
 		},
 		{
 			name: "Not found url",
-			url:  GetRandomUrl(6),
+			url:  shortHash,
+			defaultStructure: &innerStructure{
+				hasher: &mockHasher{},
+			},
 			want: httpWant{
 				code: http.StatusNotFound,
-				body: fmt.Sprintf("%s\n", shortifier.ErrUrlNotFound.Error()),
+				body: fmt.Sprintf("%s %s\n", shortHash, shortifier.ErrURLNotFound.Error()),
 			},
 		},
 		{
@@ -89,7 +102,7 @@ func Test_handlers_Redirect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			//Init
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%v", tt.url), nil)
+			req := httptest.NewRequest(http.MethodGet, host, nil)
 			req.SetPathValue("url", tt.url)
 			recorder := httptest.NewRecorder()
 			structure := setup(tt.defaultStructure)
@@ -106,12 +119,6 @@ func Test_handlers_Redirect(t *testing.T) {
 			assert.Equal(t, tt.caseWant.headerValue, res.Header.Get("Location"))
 		})
 	}
-}
-
-type mockHasher struct{}
-
-func (m *mockHasher) GetHash(input string) string {
-	return input[:len(input)-4]
 }
 
 func Test_handlers_ShortifyURL(t *testing.T) {
@@ -138,7 +145,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			},
 			want: httpWant{
 				code: http.StatusCreated,
-				body: fmt.Sprintf("%s/http://long-url", host),
+				body: fmt.Sprintf("%s/%s", host, shortHash),
 			},
 		},
 		{
@@ -156,12 +163,12 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				hasher: &mockHasher{},
 				store: &repository.Store{
 					Data: map[string]string{
-						"http://long-url": "http://long-url.com"},
+						shortHash: "http://long-url.com"},
 					Mux: &sync.Mutex{},
 				}},
 			want: httpWant{
 				code: http.StatusOK,
-				body: fmt.Sprintf("%s/http://long-url", host),
+				body: fmt.Sprintf("%s/%s", host, shortHash),
 			},
 		},
 		{
@@ -203,6 +210,67 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 
 			//Check
 			resBody, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+
+			checkResponseFields(t, res, resBody, tt.want)
+		})
+	}
+}
+
+func Test_handlers_CreateShortURLAndRead(t *testing.T) {
+
+	type caseWant struct {
+		headerValue string
+	}
+
+	host := "http://localhost:8080"
+
+	tests := []struct {
+		name             string
+		url              string
+		defaultStructure *innerStructure
+		contentType      string
+		caseWant         caseWant
+		want             httpWant
+	}{
+		{
+			name: "create shorturl and read",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				hasher: &mockHasher{},
+			},
+			want: httpWant{
+				code: http.StatusTemporaryRedirect,
+			},
+			caseWant: caseWant{
+				headerValue: "http://long-url.com",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			//Init
+			structure := setup(tt.defaultStructure)
+
+			//Get short url
+			req := httptest.NewRequest(http.MethodGet, host, strings.NewReader(tt.url))
+			req.Header.Set("Content-Type", "text/plain")
+			recorder := httptest.NewRecorder()
+			structure.handlers.ShortifyURL(recorder, req)
+			res := recorder.Result()
+			resBody, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+
+			shortURL := string(resBody)
+
+			//Resolve short url
+			req = httptest.NewRequest(http.MethodGet, shortURL, nil)
+			req.SetPathValue("url", shortHash)
+			recorder = httptest.NewRecorder()
+			structure.handlers.Redirect(recorder, req)
+			res = recorder.Result()
+			resBody, _ = io.ReadAll(res.Body)
 			res.Body.Close()
 
 			checkResponseFields(t, res, resBody, tt.want)

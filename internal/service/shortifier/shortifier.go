@@ -2,13 +2,14 @@ package shortifier
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
 
 var (
 	ErrInvalidUrl  = errors.New("url in wrong format")
-	ErrUrlNotFound = errors.New("url not found in store")
+	ErrURLNotFound = errors.New("url not found in store")
 )
 
 type Hasher interface {
@@ -51,7 +52,7 @@ func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 	url, ok := s.store.ResolveShortURL(shortURL)
 
 	if !ok {
-		return "", ErrUrlNotFound
+		return "", fmt.Errorf("%s %w", shortURL, ErrURLNotFound)
 	}
 
 	return url, nil
