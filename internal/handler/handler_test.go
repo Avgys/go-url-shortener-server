@@ -153,7 +153,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: httpWant{
 				code: http.StatusBadRequest,
-				body: fmt.Sprintf("%s\n", shortifier.ErrInvalidUrl.Error()),
+				body: fmt.Sprintf("%s\n", shortifier.ErrInvalidURL.Error()),
 			},
 		},
 		{

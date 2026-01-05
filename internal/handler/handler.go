@@ -55,7 +55,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	isCreated := false
 
 	if url, isCreated, err = h.Shortifier.ShortifyURL(url); err != nil {
-		if errors.Is(err, shortifier.ErrInvalidUrl) {
+		if errors.Is(err, shortifier.ErrInvalidURL) {
 			writeError(w, r, err, http.StatusBadRequest)
 		} else {
 			writeError(w, r, err, http.StatusInternalServerError)
