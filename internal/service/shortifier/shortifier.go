@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrInvalidUrl  = errors.New("url in wrong format")
+	ErrInvalidURL  = errors.New("url in wrong format")
 	ErrURLNotFound = errors.New("url not found in store")
 )
 
@@ -33,7 +33,7 @@ func NewShortifier(hashFunc Hasher, store Repository, domain string) *Shortifier
 
 func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
 	if !isValidURL(url) {
-		return "", false, ErrInvalidUrl
+		return "", false, ErrInvalidURL
 	}
 
 	url = strings.TrimSpace(url)
