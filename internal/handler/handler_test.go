@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"errors"
@@ -7,14 +7,15 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/service/hasher"
 	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -34,9 +35,9 @@ func GetRandomUrl(n int) string {
 
 type innerStructure struct {
 	store      *repository.Store
-	hasher     *hasher.Hasher
+	hasher     shortifier.Hasher
 	shortifier *shortifier.Shortifier
-	handlers   *handlers
+	handlers   *handler.Handlers
 }
 
 func Test_handlers_Redirect(t *testing.T) {
@@ -46,20 +47,20 @@ func Test_handlers_Redirect(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		url          string
-		defaultStore *repository.Store
-		caseWant     caseWant
-		want         httpWant
+		name             string
+		url              string
+		defaultStructure *innerStructure
+		caseWant         caseWant
+		want             httpWant
 	}{
 		{
 			name: "Get redirect",
 			url:  "short-url",
-			defaultStore: &repository.Store{
+			defaultStructure: &innerStructure{store: &repository.Store{
 				Data: map[string]string{
 					"short-url": "full-url"},
 				Mux: &sync.Mutex{},
-			},
+			}},
 			want: httpWant{
 				code: http.StatusTemporaryRedirect,
 			},
@@ -91,17 +92,26 @@ func Test_handlers_Redirect(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%v", tt.url), nil)
 			req.SetPathValue("url", tt.url)
 			recorder := httptest.NewRecorder()
-			structure := setup(tt.defaultStore)
+			structure := setup(tt.defaultStructure)
 
 			//Run
 			structure.handlers.Redirect(recorder, req)
 			res := recorder.Result()
 
 			//Check
-			checkResponseFields(t, res, tt.want)
+			resBody, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+
+			checkResponseFields(t, res, resBody, tt.want)
 			assert.Equal(t, tt.caseWant.headerValue, res.Header.Get("Location"))
 		})
 	}
+}
+
+type mockHasher struct{}
+
+func (m *mockHasher) GetHash(input string) string {
+	return input[:len(input)-4]
 }
 
 func Test_handlers_ShortifyURL(t *testing.T) {
@@ -110,79 +120,116 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 		headerValue string
 	}
 
+	host := "http://localhost:8080"
+
 	tests := []struct {
-		name         string
-		url          string
-		defaultStore *repository.Store
-		caseWant     caseWant
-		want         httpWant
+		name             string
+		url              string
+		defaultStructure *innerStructure
+		contentType      string
+		caseWant         caseWant
+		want             httpWant
 	}{
 		{
-			name: "Get redirect",
-			url:  "short-url",
-			defaultStore: &repository.Store{
-				Data: map[string]string{
-					"short-url": "full-url"},
-				Mux: &sync.Mutex{},
+			name: "create shorturl",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				hasher: &mockHasher{},
 			},
 			want: httpWant{
-				code: http.StatusTemporaryRedirect,
-			},
-			caseWant: caseWant{
-				headerValue: "full-url",
+				code: http.StatusCreated,
+				body: fmt.Sprintf("%s/http://long-url", host),
 			},
 		},
 		{
-			name: "Not found url",
-			url:  GetRandomUrl(6),
+			name: "url wrong format",
+			url:  "/gdfgdfhs",
 			want: httpWant{
-				code: http.StatusNotFound,
-				body: fmt.Sprintf("%s\n", shortifier.ErrUrlNotFound.Error()),
+				code: http.StatusBadRequest,
+				body: fmt.Sprintf("%s\n", shortifier.ErrInvalidUrl.Error()),
 			},
 		},
 		{
-			name: "No url param",
+			name: "url exists",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				hasher: &mockHasher{},
+				store: &repository.Store{
+					Data: map[string]string{
+						"http://long-url": "http://long-url.com"},
+					Mux: &sync.Mutex{},
+				}},
+			want: httpWant{
+				code: http.StatusOK,
+				body: fmt.Sprintf("%s/http://long-url", host),
+			},
+		},
+		{
+			name: "Empty body",
 			url:  "",
 			want: httpWant{
 				code: http.StatusBadRequest,
-				body: fmt.Sprintf("%s\n", errors.ErrUnsupported),
+				body: fmt.Sprintf("%s\n", handler.ErrEmptyParamBody),
 			},
+		},
+		{
+			name: "Wrong content-type",
+			url:  "http://long-url.com",
+			want: httpWant{
+				code: http.StatusBadRequest,
+				body: fmt.Sprintf("%s: %s\n", handler.ErrWrongContentType, "text"),
+			},
+			contentType: "text",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			//Init
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%v", tt.url), nil)
-			req.SetPathValue("url", tt.url)
+			req := httptest.NewRequest(http.MethodGet, host, strings.NewReader(tt.url))
+
+			if tt.contentType == "" {
+				req.Header.Set("Content-Type", "text/plain")
+			} else {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+
 			recorder := httptest.NewRecorder()
-			structure := setup(tt.defaultStore)
+			structure := setup(tt.defaultStructure)
 
 			//Run
-			structure.handlers.Redirect(recorder, req)
+			structure.handlers.ShortifyURL(recorder, req)
 			res := recorder.Result()
 
 			//Check
-			checkResponseFields(t, res, tt.want)
-			assert.Equal(t, tt.caseWant.headerValue, res.Header.Get("Location"))
+			resBody, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+
+			checkResponseFields(t, res, resBody, tt.want)
 		})
 	}
 }
 
-func setup(defaultStore *repository.Store) *innerStructure {
+func setup(defaultStructure *innerStructure) *innerStructure {
 
 	var store *repository.Store
-	if defaultStore != nil {
-		store = defaultStore
+	if defaultStructure != nil && defaultStructure.store != nil {
+		store = defaultStructure.store
 	} else {
 		store = repository.NewStore()
 	}
 
-	hashFunc := hasher.NewHasher("SomeSecret")
+	var hashFunc shortifier.Hasher
+	if defaultStructure != nil && defaultStructure.hasher != nil {
+		hashFunc = defaultStructure.hasher
+	} else {
+		hashFunc = hasher.NewHasher("SomeSecret")
+	}
+
 	shortifier := shortifier.NewShortifier(hashFunc, store, "http://localhost:8080")
 
-	h := &handlers{
-		shortifier: shortifier,
+	h := &handler.Handlers{
+		Shortifier: shortifier,
 	}
 
 	return &innerStructure{
@@ -193,14 +240,9 @@ func setup(defaultStore *repository.Store) *innerStructure {
 	}
 }
 
-func checkResponseFields(t *testing.T, res *http.Response, want httpWant) {
+func checkResponseFields(t *testing.T, res *http.Response, resBody []byte, want httpWant) {
 
 	assert.Equal(t, want.code, res.StatusCode)
-	defer res.Body.Close()
-
-	resBody, err := io.ReadAll(res.Body)
-
-	require.NoError(t, err)
 
 	contentType := res.Header.Get("Content-Type")
 
