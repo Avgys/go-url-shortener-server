@@ -2,11 +2,13 @@ package shortifier
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
+)
 
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
+var (
+	ErrInvalidUrl  = errors.New("url in wrong format")
+	ErrUrlNotFound = errors.New("url not found in store")
 )
 
 type Hasher interface {
@@ -15,7 +17,7 @@ type Hasher interface {
 
 type Repository interface {
 	StoreURL(url string, urlHash string) bool
-	ResolveShortURL(shortURL string) (string, error)
+	ResolveShortURL(shortURL string) (string, bool)
 }
 
 type Shortifier struct {
@@ -25,13 +27,12 @@ type Shortifier struct {
 }
 
 func NewShortifier(hashFunc Hasher, store Repository, domain string) *Shortifier {
-
 	return &Shortifier{hashFunc: hashFunc, store: store, domain: domain}
 }
 
 func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
 	if !isValidURL(url) {
-		return "", false, errors.New("url in wrong format")
+		return "", false, ErrInvalidUrl
 	}
 
 	url = strings.TrimSpace(url)
@@ -47,12 +48,10 @@ func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 
 	shortURL = strings.TrimSpace(shortURL)
 
-	url, err := s.store.ResolveShortURL(shortURL)
+	url, ok := s.store.ResolveShortURL(shortURL)
 
-	if err != nil {
-		if errors.Is(err, repository.ErrStoreNotFound) {
-			return "", fmt.Errorf("counldn't find url: %w", err)
-		}
+	if !ok {
+		return "", ErrUrlNotFound
 	}
 
 	return url, nil

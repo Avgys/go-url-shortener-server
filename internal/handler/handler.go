@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Avgys/go-url-shortener-server/internal/handler/config"
+	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
 )
 
 type Shortifier interface {
@@ -48,12 +49,12 @@ func (h *handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	if url, err = getURIParam(r); err != nil {
-		writeError(w, r, err)
+		writeError(w, r, err, http.StatusBadRequest)
 		return
 	}
 
 	if url, err = h.shortifier.ResolveShortURL(url); err != nil {
-		writeError(w, r, err)
+		writeError(w, r, err, http.StatusNotFound)
 		return
 	}
 
@@ -63,18 +64,20 @@ func (h *handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
-	var url string
-	var err error
 
-	if url, err = getRequestBody(r); err != nil {
-		writeError(w, r, err)
+	url, err := getRequestBody(r)
+	if err != nil {
+		writeError(w, r, err, http.StatusBadRequest)
 		return
 	}
 
 	isCreated := false
 
 	if url, isCreated, err = h.shortifier.ShortifyURL(url); err != nil {
-		writeError(w, r, err)
+		if errors.Is(err, shortifier.ErrInvalidUrl) {
+			writeError(w, r, err, http.StatusBadRequest)
+		}
+		writeError(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -127,7 +130,7 @@ func writeResponse(w http.ResponseWriter, text string, code int) {
 	}
 }
 
-func writeError(w http.ResponseWriter, r *http.Request, err error) {
+func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
 	payload := struct {
 		Method      string      `json:"method"`
 		Path        string      `json:"path"`
@@ -150,5 +153,5 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(payload)
 
-	http.Error(w, err.Error(), http.StatusBadRequest)
+	http.Error(w, err.Error(), statusCode)
 }

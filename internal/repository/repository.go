@@ -1,48 +1,39 @@
 package repository
 
 import (
-	"errors"
 	"sync"
 )
 
 type Store struct {
-	data map[string]string
-	mux  *sync.Mutex
+	Data map[string]string
+	Mux  *sync.Mutex
 }
 
 func NewStore() *Store {
 	return &Store{
-		data: make(map[string]string),
-		mux:  &sync.Mutex{},
+		Data: make(map[string]string),
+		Mux:  &sync.Mutex{},
 	}
 }
 
-var (
-	ErrStoreNotFound = errors.New("url not found in store")
-)
-
 func (s *Store) StoreURL(url string, urlHash string) bool {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.Mux.Lock()
+	defer s.Mux.Unlock()
 
-	if _, existed := s.data[urlHash]; existed {
+	if _, existed := s.Data[urlHash]; existed {
 		return false
 	}
 
-	s.data[urlHash] = url
+	s.Data[urlHash] = url
 
 	return true
 }
 
-func (s *Store) ResolveShortURL(shortURL string) (string, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+func (s *Store) ResolveShortURL(shortURL string) (string, bool) {
+	s.Mux.Lock()
+	defer s.Mux.Unlock()
 
-	url := s.data[shortURL]
+	url, ok := s.Data[shortURL]
 
-	if url == "" {
-		return "", ErrStoreNotFound
-	}
-
-	return url, nil
+	return url, ok
 }
