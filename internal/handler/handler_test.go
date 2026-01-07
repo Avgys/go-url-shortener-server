@@ -98,12 +98,10 @@ func Test_handlers_Redirect(t *testing.T) {
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
+			defer res.Body.Close()
 
 			//Check
-			resBody, _ := io.ReadAll(res.Body)
-			res.Body.Close()
-
-			testcommon.CheckResponseFields(t, res, resBody, tt.want)
+			testcommon.CheckResponseFields(t, res, tt.want)
 		})
 	}
 }
@@ -189,12 +187,11 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
+			defer res.Body.Close()
 
 			//Check
-			resBody, _ := io.ReadAll(res.Body)
-			res.Body.Close()
 
-			testcommon.CheckResponseFields(t, res, resBody, tt.want)
+			testcommon.CheckResponseFields(t, res, tt.want)
 		})
 	}
 }
@@ -246,11 +243,9 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 			recorder = httptest.NewRecorder()
 			r.ServeHTTP(recorder, req)
 			res = recorder.Result()
-			resBody, err = io.ReadAll(res.Body)
-			require.NoError(t, err)
-			res.Body.Close()
+			defer res.Body.Close()
 
-			testcommon.CheckResponseFields(t, res, resBody, tt.want)
+			testcommon.CheckResponseFields(t, res, tt.want)
 		})
 	}
 }

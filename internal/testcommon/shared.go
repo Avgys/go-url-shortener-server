@@ -1,10 +1,12 @@
 package testcommon
 
 import (
+	"io"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type ResponseWant struct {
@@ -13,7 +15,10 @@ type ResponseWant struct {
 	Headers    map[string]string
 }
 
-func CheckResponseFields(t *testing.T, res *http.Response, resBody []byte, want ResponseWant) {
+func CheckResponseFields(t *testing.T, res *http.Response, want ResponseWant) {
+
+	resBody, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
 
 	assert.Equal(t, want.StatusCode, res.StatusCode)
 

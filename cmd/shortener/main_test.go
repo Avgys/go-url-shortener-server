@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +19,7 @@ func TestRouter(t *testing.T) {
 	ts := getTestRouter()
 	defer ts.Close()
 
-	redirectUrl := "http://someurl"
+	redirectURL := "http://someurl"
 	host := ts.URL
 
 	var testTable = []struct {
@@ -28,15 +27,17 @@ func TestRouter(t *testing.T) {
 		request *http.Request
 		want    testcommon.ResponseWant
 	}{
-		{name: "Store url", request: getStoreRequest(t, host, redirectUrl),
+		{name: "Store url", request: getStoreRequest(t, host, redirectURL),
 			want: testcommon.ResponseWant{StatusCode: http.StatusCreated, Body: fmt.Sprintf("%s/%s", host, testcommon.ShortHash)}},
 		{name: "Redirect url", request: getRedirectRequest(t, host, testcommon.ShortHash),
-			want: testcommon.ResponseWant{StatusCode: http.StatusTemporaryRedirect, Body: "", Headers: map[string]string{"Location": redirectUrl}}},
+			want: testcommon.ResponseWant{StatusCode: http.StatusTemporaryRedirect, Body: "", Headers: map[string]string{"Location": redirectURL}}},
 	}
 	for _, tt := range testTable {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, get := testRequest(t, ts, tt.request)
-			testcommon.CheckResponseFields(t, resp, get, tt.want)
+			resp := testRequest(t, ts, tt.request)
+			defer resp.Body.Close()
+
+			testcommon.CheckResponseFields(t, resp, tt.want)
 		})
 	}
 }
@@ -53,7 +54,7 @@ func getTestRouter() *httptest.Server {
 	return ts
 }
 
-func testRequest(t *testing.T, ts *httptest.Server, req *http.Request) (*http.Response, []byte) {
+func testRequest(t *testing.T, ts *httptest.Server, req *http.Request) *http.Response {
 
 	client := ts.Client()
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -62,12 +63,8 @@ func testRequest(t *testing.T, ts *httptest.Server, req *http.Request) (*http.Re
 
 	res, err := client.Do(req)
 	require.NoError(t, err)
-	defer res.Body.Close()
 
-	resBody, err := io.ReadAll(res.Body)
-	require.NoError(t, err)
-
-	return res, resBody
+	return res
 }
 
 func getStoreRequest(t *testing.T, host string, longURL string) *http.Request {
