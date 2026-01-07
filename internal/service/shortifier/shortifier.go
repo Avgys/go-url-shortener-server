@@ -27,8 +27,9 @@ type Shortifier struct {
 	hashFunc Hasher
 }
 
-func NewShortifier(hashFunc Hasher, store Repository, domain string) *Shortifier {
-	return &Shortifier{hashFunc: hashFunc, store: store, domain: domain}
+func NewShortifier(hashFunc Hasher, store Repository) *Shortifier {
+
+	return &Shortifier{hashFunc: hashFunc, store: store}
 }
 
 func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
@@ -41,8 +42,8 @@ func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
 	shortURL := s.hashFunc.GetHash(url)
 
 	isCreated := s.store.StoreURL(url, shortURL)
-	readyToUseURL := s.domain + "/" + shortURL
-	return readyToUseURL, isCreated, nil
+	//readyToUseURL := s.domain + "/" + shortURL
+	return shortURL, isCreated, nil
 }
 
 func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {

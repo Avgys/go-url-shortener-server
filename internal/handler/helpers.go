@@ -10,19 +10,15 @@ import (
 	"strings"
 )
 
-func getURIParam(r *http.Request) (string, error) {
-	urlParam := r.PathValue("url")
-
-	if urlParam == "" {
-		return "", errors.ErrUnsupported
-	}
-
-	return urlParam, nil
-}
+var (
+	ErrWrongContentType         = errors.New("wrong content-type")
+	ErrInternalErrorReadingBody = errors.New("got error reading url")
+	ErrEmptyParamBody           = errors.New("empty param body")
+)
 
 func getRequestBody(r *http.Request) (string, error) {
 
-	if !strings.Contains(r.Header.Get("Content-type"), "text/plain") {
+	if !strings.Contains(r.Header.Get("Content-Type"), "text/plain") {
 		return "", fmt.Errorf("%w: %v", ErrWrongContentType, r.Header.Get("Content-type"))
 	}
 
