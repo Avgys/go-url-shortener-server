@@ -21,7 +21,7 @@ func main() {
 func run() error {
 	cfg := config.GetConfig()
 
-	r := prepareRouter(cfg)
+	r := prepareRouter()
 
 	srv := &http.Server{
 		Addr:    cfg.URL.Host,
@@ -31,7 +31,7 @@ func run() error {
 	return srv.ListenAndServe()
 }
 
-func prepareRouter(cfg *config.Config) *chi.Mux {
+func prepareRouter() *chi.Mux {
 	store := repository.NewStore()
 	hashFunc := hasher.NewHasher("SomeSecret")
 
