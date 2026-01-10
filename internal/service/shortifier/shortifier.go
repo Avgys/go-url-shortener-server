@@ -3,8 +3,10 @@ package shortifier
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
+
+	"github.com/Avgys/go-url-shortener-server/internal/config"
+	"github.com/Avgys/go-url-shortener-server/internal/shared"
 )
 
 var (
@@ -22,18 +24,19 @@ type Repository interface {
 }
 
 type Shortifier struct {
-	domain   string
-	store    Repository
-	hashFunc Hasher
+	domain       string
+	store        Repository
+	hashFunc     Hasher
+	redirectAddr *config.NetAddress
 }
 
-func NewShortifier(hashFunc Hasher, store Repository) *Shortifier {
+func NewShortifier(hashFunc Hasher, store Repository, redirectAddr *config.NetAddress) *Shortifier {
 
-	return &Shortifier{hashFunc: hashFunc, store: store}
+	return &Shortifier{hashFunc: hashFunc, store: store, redirectAddr: redirectAddr}
 }
 
 func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
-	if !isValidURL(url) {
+	if _, err := shared.GetURL(url, true); err != nil {
 		return "", false, ErrInvalidURL
 	}
 
@@ -42,8 +45,10 @@ func (s *Shortifier) ShortifyURL(url string) (string, bool, error) {
 	shortURL := s.hashFunc.GetHash(url)
 
 	isCreated := s.store.StoreURL(url, shortURL)
-	//readyToUseURL := s.domain + "/" + shortURL
-	return shortURL, isCreated, nil
+
+	resultURL := fmt.Sprintf("%s/%s", s.redirectAddr.String(), shortURL)
+
+	return resultURL, isCreated, nil
 }
 
 func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
@@ -57,26 +62,4 @@ func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 	}
 
 	return url, nil
-}
-
-// isValidURL reports whether s is a syntactically valid absolute HTTP/HTTPS URL.
-// Requirements:
-// - Must parse via url.ParseRequestURI
-// - Scheme must be http or https
-// - Host must be non-empty
-func isValidURL(s string) bool {
-	if s == "" {
-		return false
-	}
-	u, err := url.ParseRequestURI(s)
-	if err != nil {
-		return false
-	}
-	if !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
-		return false
-	}
-	if u.Host == "" {
-		return false
-	}
-	return true
 }

@@ -2,30 +2,28 @@ package config
 
 import (
 	"flag"
-	"net/url"
 )
 
 type Config struct {
-	URL url.URL
+	AppURL         NetAddress
+	RedirectDomain NetAddress
 }
 
 func GetConfig() *Config {
-	cfg := Config{}
+	cfg := GetDefaultConfig()
 
-	url := url.URL{}
-
-	flag.StringVar(&(url.Host), "host", "localhost:8080", "address of HTTP server")
-	flag.StringVar(&(url.Scheme), "scheme", "http", "address of HTTP server")
-	cfg.URL = url
+	flag.Var(&cfg.AppURL, "a", "address of HTTP server")
+	flag.Var(&cfg.RedirectDomain, "b", "address of redirect")
 
 	flag.Parse()
-	return &cfg
+	return cfg
 }
 
 func GetDefaultConfig() *Config {
-	cfg := Config{
-		URL: url.URL{Host: "localhost:8080", Scheme: "http"},
-	}
+	cfg := Config{}
+
+	cfg.AppURL = NetAddress{Host: "localhost:8080", SchemeRequired: false}
+	cfg.RedirectDomain = NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
 
 	return &cfg
 }

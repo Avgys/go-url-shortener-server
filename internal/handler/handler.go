@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
@@ -18,9 +17,9 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isCreated := false
-	shortURL := ""
+	resultURL := ""
 
-	if shortURL, isCreated, err = h.Shortifier.ShortifyURL(url); err != nil {
+	if resultURL, isCreated, err = h.Shortifier.ShortifyURL(url); err != nil {
 		if errors.Is(err, shortifier.ErrInvalidURL) {
 			writeError(w, r, err, http.StatusBadRequest)
 		} else {
@@ -29,12 +28,12 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
+	// scheme := "http"
+	// if r.TLS != nil {
+	// 	scheme = "https"
+	// }
 
-	resultURL := fmt.Sprintf("%s://%s/%s", scheme, r.Host, shortURL)
+	// resultURL := fmt.Sprintf("%s://%s/%s", scheme, r.Host, shortURL)
 
 	var status int
 	if isCreated {

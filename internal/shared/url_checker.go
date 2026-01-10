@@ -1,0 +1,58 @@
+package shared
+
+import (
+	"errors"
+	"net/url"
+	"strings"
+)
+
+var (
+	ErrEmptyURL       = errors.New("empty url")
+	ErrEmptyHost      = errors.New("empty host")
+	ErrNotValidScheme = errors.New("not valid scheme")
+)
+
+func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
+
+	s = strings.TrimSpace(s)
+	u := &url.URL{}
+
+	if s == "" {
+		return u, ErrEmptyURL
+	}
+
+	// Parse as-is first
+	parsed, err := url.Parse(s)
+	if err != nil || parsed.Host == "" {
+		// If there's no scheme indicator, try network-path reference to capture host
+		if !strings.Contains(s, "://") {
+			if p2, err2 := url.Parse("//" + s); err2 == nil {
+				parsed = p2
+				err = nil
+			} else {
+				// Fall back to original error if alternative parse fails
+				return parsed, err2
+			}
+		} else if err != nil {
+			return parsed, err
+		}
+	}
+
+	// Validate or normalize scheme
+	if isSchemeRequired {
+		if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
+			return parsed, ErrNotValidScheme
+		}
+	} else {
+		// Default to http when scheme is not required and missing
+		if parsed.Scheme == "" {
+			parsed.Scheme = "http"
+		}
+	}
+
+	if parsed.Host == "" {
+		return parsed, ErrEmptyHost
+	}
+
+	return parsed, nil
+}

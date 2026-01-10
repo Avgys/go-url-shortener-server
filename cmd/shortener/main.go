@@ -21,21 +21,21 @@ func main() {
 func run() error {
 	cfg := config.GetConfig()
 
-	r := prepareRouter()
+	r := prepareRouter(cfg)
 
 	srv := &http.Server{
-		Addr:    cfg.URL.Host,
+		Addr:    cfg.AppURL.Host,
 		Handler: r,
 	}
 
 	return srv.ListenAndServe()
 }
 
-func prepareRouter() *chi.Mux {
+func prepareRouter(cfg *config.Config) *chi.Mux {
 	store := repository.NewStore()
 	hashFunc := hasher.NewHasher("SomeSecret")
 
-	shortifier := shortifier.NewShortifier(hashFunc, store)
+	shortifier := shortifier.NewShortifier(hashFunc, store, &cfg.RedirectDomain)
 
 	h := handler.NewHandlers(shortifier)
 	return router.NewRouter(h)

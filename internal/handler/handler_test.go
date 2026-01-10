@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -24,7 +23,7 @@ import (
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-var testHost url.URL = url.URL{Host: "localhost:8080", Scheme: "http"}
+var testHost config.NetAddress = config.NetAddress{Host: "localhost:8080", Scheme: "http"}
 
 func GetRandomURL(n int) string {
 	b := make([]byte, n)
@@ -59,7 +58,7 @@ func Test_handlers_Redirect(t *testing.T) {
 						"short-url": "full-url"},
 					Mux: &sync.Mutex{},
 				},
-				config: &config.Config{URL: testHost},
+				config: &config.Config{AppURL: testHost},
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,
@@ -252,21 +251,23 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 
 func getRouter(defaultStructure *innerStructure) *chi.Mux {
 
-	var store *repository.Store
-	if defaultStructure != nil && defaultStructure.store != nil {
-		store = defaultStructure.store
-	} else {
-		store = repository.NewStore()
+	if defaultStructure == nil {
+		defaultStructure = &innerStructure{}
 	}
 
-	var hashFunc shortifier.Hasher
-	if defaultStructure != nil && defaultStructure.hasher != nil {
-		hashFunc = defaultStructure.hasher
-	} else {
-		hashFunc = hasher.NewHasher("SomeSecret")
+	if defaultStructure != nil && defaultStructure.store == nil {
+		defaultStructure.store = repository.NewStore()
 	}
 
-	shortifier := shortifier.NewShortifier(hashFunc, store)
+	if defaultStructure != nil && defaultStructure.hasher == nil {
+		defaultStructure.hasher = hasher.NewHasher("SomeSecret")
+	}
+
+	if defaultStructure != nil && defaultStructure.config == nil {
+		defaultStructure.config = config.GetDefaultConfig()
+	}
+
+	shortifier := shortifier.NewShortifier(defaultStructure.hasher, defaultStructure.store, &defaultStructure.config.RedirectDomain)
 
 	h := &handler.Handlers{
 		Shortifier: shortifier,

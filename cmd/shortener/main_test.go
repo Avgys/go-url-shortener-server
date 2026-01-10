@@ -7,10 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
 )
@@ -44,13 +46,20 @@ func TestRouter(t *testing.T) {
 
 func getTestRouter() *httptest.Server {
 
+	cfg := config.GetDefaultConfig()
 	store := repository.NewStore()
 	hashFunc := &testcommon.MockHasher{}
 
-	shortifier := shortifier.NewShortifier(hashFunc, store)
+	shortifier := shortifier.NewShortifier(hashFunc, store, &cfg.RedirectDomain)
 	h := &handler.Handlers{Shortifier: shortifier}
 
 	ts := httptest.NewServer(router.NewRouter(h))
+
+	u, _ := shared.GetURL(ts.URL, true)
+
+	cfg.RedirectDomain.Host = u.Host
+	cfg.RedirectDomain.Scheme = u.Scheme
+
 	return ts
 }
 
