@@ -1,4 +1,4 @@
-package hasher
+package service
 
 import (
 	"crypto/hmac"

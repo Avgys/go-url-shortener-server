@@ -28,13 +28,6 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// scheme := "http"
-	// if r.TLS != nil {
-	// 	scheme = "https"
-	// }
-
-	// resultURL := fmt.Sprintf("%s://%s/%s", scheme, r.Host, shortURL)
-
 	var status int
 	if isCreated {
 		status = http.StatusCreated

@@ -46,8 +46,8 @@ func TestRouter(t *testing.T) {
 
 func getTestRouter() *httptest.Server {
 
-	cfg := config.GetDefaultConfig()
-	store := repository.NewStore()
+	cfg := config.GetConfig()
+	store := repository.NewStore(nil)
 	hashFunc := &testcommon.MockHasher{}
 
 	shortifier := shortifier.NewShortifier(hashFunc, store, &cfg.RedirectDomain)

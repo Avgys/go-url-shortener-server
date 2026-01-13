@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -68,9 +69,11 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 		Error:       err.Error(),
 	}
 
+	log.Printf("error proccessing request, %s", err.Error())
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(payload)
 
-	http.Error(w, err.Error(), statusCode)
+	http.Error(w, http.StatusText(statusCode), statusCode)
 }

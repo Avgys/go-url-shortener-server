@@ -3,11 +3,9 @@ package handler_test
 import (
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
@@ -21,17 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 var testHost config.NetAddress = config.NetAddress{Host: "localhost:8080", Scheme: "http"}
-
-func GetRandomURL(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
 
 type innerStructure struct {
 	store      *repository.Store
@@ -53,11 +41,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			name: "Get redirect",
 			url:  "/short-url",
 			defaultStructure: &innerStructure{
-				store: &repository.Store{
-					Data: map[string]string{
-						"short-url": "full-url"},
-					Mux: &sync.Mutex{},
-				},
+				store:  repository.NewStore(map[string]string{"short-url": "full-url"}),
 				config: &config.Config{AppURL: testHost},
 			},
 			want: testcommon.ResponseWant{
@@ -140,11 +124,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
 				hasher: &testcommon.MockHasher{},
-				store: &repository.Store{
-					Data: map[string]string{
-						testcommon.ShortHash: "http://long-url.com"},
-					Mux: &sync.Mutex{},
-				}},
+				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusOK,
 				Body:       fmt.Sprintf("%s/%s", host, testcommon.ShortHash),
@@ -256,7 +236,7 @@ func getRouter(defaultStructure *innerStructure) *chi.Mux {
 	}
 
 	if defaultStructure != nil && defaultStructure.store == nil {
-		defaultStructure.store = repository.NewStore()
+		defaultStructure.store = repository.NewStore(nil)
 	}
 
 	if defaultStructure != nil && defaultStructure.hasher == nil {
@@ -264,7 +244,7 @@ func getRouter(defaultStructure *innerStructure) *chi.Mux {
 	}
 
 	if defaultStructure != nil && defaultStructure.config == nil {
-		defaultStructure.config = config.GetDefaultConfig()
+		defaultStructure.config = config.GetConfig()
 	}
 
 	shortifier := shortifier.NewShortifier(defaultStructure.hasher, defaultStructure.store, &defaultStructure.config.RedirectDomain)

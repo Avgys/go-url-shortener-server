@@ -3,16 +3,18 @@ module github.com/Avgys/go-url-shortener-server
 go 1.24.11
 
 require (
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/jingyugao/rowserrcheck v1.1.1
 	honnef.co/go/tools v0.6.1
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.5.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

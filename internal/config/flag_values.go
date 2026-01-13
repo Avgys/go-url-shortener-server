@@ -30,6 +30,7 @@ func (addr *NetAddress) String() string {
 func (addr *NetAddress) Set(input string) error {
 
 	u, err := shared.GetURL(input, addr.SchemeRequired)
+	u.Host = strings.Trim(u.Host, ":")
 
 	if err != nil {
 		return fmt.Errorf("%w, %s not compatible with [http://]hostname:port", err, input)

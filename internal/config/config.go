@@ -10,7 +10,7 @@ type Config struct {
 }
 
 func GetConfig() *Config {
-	cfg := GetDefaultConfig()
+	cfg := getDefaultConfig()
 
 	flag.Var(&cfg.AppURL, "a", "address of HTTP server")
 	flag.Var(&cfg.RedirectDomain, "b", "address of redirect")
@@ -19,10 +19,10 @@ func GetConfig() *Config {
 	return cfg
 }
 
-func GetDefaultConfig() *Config {
+func getDefaultConfig() *Config {
 	cfg := Config{}
 
-	cfg.AppURL = NetAddress{Host: "localhost:8080", SchemeRequired: false}
+	cfg.AppURL = NetAddress{Host: "", SchemeRequired: false}
 	cfg.RedirectDomain = NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
 
 	return &cfg
