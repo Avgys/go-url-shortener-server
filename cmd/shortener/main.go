@@ -8,8 +8,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service/hasher"
-	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -33,10 +32,10 @@ func run() error {
 }
 
 func prepareRouter(cfg *config.Config) *chi.Mux {
-	store := repository.NewStore()
-	hashFunc := hasher.NewHasher("SomeSecret")
+	store := repository.NewStore(nil)
+	generator := service.NewUrlGenerator()
 
-	shortifier := shortifier.NewShortifier(hashFunc, store, &cfg.RedirectDomain)
+	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
 
 	h := handler.NewHandlers(shortifier)
 	return router.NewRouter(h)

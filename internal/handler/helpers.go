@@ -7,20 +7,19 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
 var (
-	ErrWrongContentType         = errors.New("wrong content-type")
-	ErrInternalErrorReadingBody = errors.New("got error reading url")
+	errWrongContentType         = errors.New("wrong content-type")
+	errInternalErrorReadingBody = errors.New("got error reading url")
 	ErrEmptyParamBody           = errors.New("empty param body")
 )
 
 func getRequestBody(r *http.Request) (string, error) {
 
 	if !strings.Contains(r.Header.Get("Content-Type"), "text/plain") {
-		return "", fmt.Errorf("%w: %v", ErrWrongContentType, r.Header.Get("Content-type"))
+		return "", fmt.Errorf("%w: %v", errWrongContentType, r.Header.Get("Content-type"))
 	}
 
 	buffer := make([]byte, 128)
@@ -30,7 +29,7 @@ func getRequestBody(r *http.Request) (string, error) {
 	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
 		fmt.Printf("got error %v\n", err)
 
-		return "", ErrInternalErrorReadingBody
+		return "", errInternalErrorReadingBody
 	}
 
 	if readBytes == 0 {
@@ -71,9 +70,13 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 
 	log.Printf("error proccessing request, %s", err.Error())
 
-	enc := json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(log.Writer())
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(payload)
+	err = enc.Encode(payload)
+
+	if err != nil {
+		log.Printf("error marshaling request payload, %s", err.Error())
+	}
 
 	http.Error(w, http.StatusText(statusCode), statusCode)
 }

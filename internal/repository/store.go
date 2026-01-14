@@ -11,38 +11,43 @@ var (
 )
 
 type Store struct {
-	Data map[string]string
+	data map[string]string
 	mux  sync.Mutex
 }
 
 func NewStore(initData map[string]string) *Store {
-	s := &Store{Data: make(map[string]string)}
+	s := &Store{data: make(map[string]string)}
 
 	for k, v := range initData {
-		s.Data[k] = v
+		s.data[k] = v
 	}
 
 	return s
 }
 
-func (s *Store) StoreURL(url string, shortURL string) bool {
+func (s *Store) StoreURL(url string, shortURL string) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if _, existed := s.Data[shortURL]; existed {
-		return false
+	if _, existed := s.data[shortURL]; existed {
+		return ErrCollision
 	}
 
-	s.Data[shortURL] = url
+	s.data[shortURL] = url
 
-	return true
+	return nil
 }
 
-func (s *Store) ResolveShortURL(shortURL string) (string, bool) {
+func (s *Store) ResolveShortURL(shortURL string) (string, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	url, ok := s.Data[shortURL]
+	url, ok := s.data[shortURL]
 
-	return url, ok
+	var err error = nil
+	if !ok {
+		err = ErrNotFound
+	}
+
+	return url, err
 }

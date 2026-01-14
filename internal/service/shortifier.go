@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
+	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 )
 
@@ -14,8 +15,7 @@ const shortURLMaxLength = 8
 const maxStoreRetryCount = 20
 
 var (
-	ErrInvalidURL  = errors.New("url in wrong format")
-	ErrURLNotFound = errors.New("url not found in store")
+	ErrInvalidURL = errors.New("url in wrong format")
 )
 
 type StringGenerator interface {
@@ -24,7 +24,7 @@ type StringGenerator interface {
 
 type Repository interface {
 	StoreURL(url string, urlHash string) error
-	ResolveShortURL(shortURL string) (string, bool)
+	ResolveShortURL(shortURL string) (string, error)
 }
 
 type Shortifier struct {
@@ -39,38 +39,44 @@ func NewShortifier(stringGenerator StringGenerator, store Repository, redirectAd
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 
-func (s *Shortifier) ShortifyURL(inputURL string) (string, bool, error) {
+func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 	if _, err := shared.GetURL(inputURL, true); err != nil {
-		return "", false, ErrInvalidURL
+		return "", ErrInvalidURL
 	}
 
 	trimmedURL := strings.TrimSpace(inputURL)
 
-	isStoredNew := false
 	shortURL := ""
 
-	for i := 0; !isStoredNew && i < maxStoreRetryCount; i++ {
+	for i := 0; i < maxStoreRetryCount; i++ {
 		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
 
-		isStoredNew = s.store.StoreURL(trimmedURL, shortURL)
+		if err := s.store.StoreURL(trimmedURL, shortURL); err != nil {
+			if !errors.Is(err, repository.ErrCollision) {
+				return "", err
+			}
+		}
 	}
 
-	resultURL := ""
-	if isStoredNew {
-		resultURL, _ = url.JoinPath(s.redirectAddr.String(), shortURL)
+	resultURL, err := url.JoinPath(s.redirectAddr.String(), shortURL)
+
+	if err != nil {
+		return "", err
 	}
 
-	return resultURL, isStoredNew, nil
+	return resultURL, nil
 }
 
-func (s *Shortifier) ResolveShortURL(shortURL strifng) (string, error) {
+func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 
 	shortURL = strings.TrimSpace(shortURL)
 
-	url, ok := s.store.ResolveShortURL(shortURL)
+	url, err := s.store.ResolveShortURL(shortURL)
 
-	if !ok {
-		return "", fmt.Errorf("%s %w", shortURL, ErrURLNotFound)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return "", fmt.Errorf("%s %w", shortURL, err)
+		}
 	}
 
 	return url, nil

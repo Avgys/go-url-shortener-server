@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,7 +20,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	resultURL := ""
 
 	if resultURL, isCreated, err = h.Shortifier.ShortifyURL(url); err != nil {
-		if errors.Is(err, shortifier.ErrInvalidURL) {
+		if errors.Is(err, service.ErrInvalidURL) {
 			writeError(w, r, err, http.StatusBadRequest)
 		} else {
 			writeError(w, r, err, http.StatusInternalServerError)
