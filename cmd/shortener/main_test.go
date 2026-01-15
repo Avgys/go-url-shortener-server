@@ -47,7 +47,7 @@ func TestRouter(t *testing.T) {
 
 func getTestRouter() *httptest.Server {
 
-	cfg := config.GetConfig()
+	cfg, _ := config.GetConfig([]string{})
 	store := repository.NewStore(nil)
 	strGen := &testcommon.MockStrGen{}
 

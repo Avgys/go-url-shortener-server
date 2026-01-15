@@ -9,20 +9,19 @@ type Config struct {
 	RedirectDomain NetAddress
 }
 
-var cfg *Config
+func GetConfig(args []string) (*Config, error) {
+	cfg := getDefaultConfig()
 
-func GetConfig() *Config {
-	if cfg != nil {
-		return cfg
+	fs := flag.NewFlagSet("shortener", flag.ContinueOnError)
+
+	fs.Var(&cfg.AppURL, "a", "address of HTTP server")
+	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
 	}
 
-	cfg = getDefaultConfig()
-
-	flag.Var(&cfg.AppURL, "a", "address of HTTP server")
-	flag.Var(&cfg.RedirectDomain, "b", "address of redirect")
-
-	flag.Parse()
-	return cfg
+	return cfg, nil
 }
 
 func getDefaultConfig() *Config {

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
@@ -19,7 +20,11 @@ func main() {
 }
 
 func run() error {
-	cfg := config.GetConfig()
+	cfg, err := config.GetConfig(os.Args[1:])
+
+	if err != nil {
+		return err
+	}
 
 	r := prepareRouter(cfg)
 

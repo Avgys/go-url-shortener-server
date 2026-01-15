@@ -245,7 +245,7 @@ func getRouter(testStructure *innerStructure) *chi.Mux {
 	}
 
 	if testStructure != nil && testStructure.config == nil {
-		testStructure.config = config.GetConfig()
+		testStructure.config, _ = config.GetConfig([]string{})
 	}
 
 	shortifier := service.NewShortifier(testStructure.strGen, testStructure.store, &testStructure.config.RedirectDomain)
