@@ -12,8 +12,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service/hasher"
-	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
@@ -22,9 +21,9 @@ import (
 var testHost config.NetAddress = config.NetAddress{Host: "localhost:8080", Scheme: "http"}
 
 type innerStructure struct {
-	store      *repository.Store
-	hasher     shortifier.Hasher
-	shortifier *shortifier.Shortifier
+	store      service.Repository
+	strGen     service.StringGenerator
+	shortifier *service.Shortifier
 	handlers   *handler.Handlers
 	config     *config.Config
 }
@@ -53,11 +52,11 @@ func Test_handlers_Redirect(t *testing.T) {
 			name: "Not found url",
 			url:  "/" + testcommon.ShortHash,
 			defaultStructure: &innerStructure{
-				hasher: &testcommon.MockHasher{},
+				strGen: &testcommon.MockStrGen{},
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
-				Body:       fmt.Sprintf("%s %s\n", testcommon.ShortHash, shortifier.ErrURLNotFound.Error()),
+				Body:       fmt.Sprintf("%s %s, inner error: %s\n", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
 			},
 		},
 		{
@@ -104,10 +103,10 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			name: "create shorturl",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				hasher: &testcommon.MockHasher{},
+				strGen: &testcommon.MockStrGen{},
 			},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusCreated,
+				StatusCode: http.StatusOK,
 				Body:       fmt.Sprintf("%s/%s", host, testcommon.ShortHash),
 			},
 		},
@@ -116,18 +115,18 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       fmt.Sprintf("%s\n", shortifier.ErrInvalidURL.Error()),
+				Body:       fmt.Sprintf("%s\n", service.ErrInvalidURL.Error()),
 			},
 		},
 		{
 			name: "url exists",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				hasher: &testcommon.MockHasher{},
+				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusOK,
-				Body:       fmt.Sprintf("%s/%s", host, testcommon.ShortHash),
+				Body:       fmt.Sprintf("%s/%s", host, testcommon.TestStr),
 			},
 		},
 		{
@@ -188,7 +187,7 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 			name: "create shorturl and read",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				hasher: &testcommon.MockHasher{},
+				strGen: &testcommon.MockStrGen{},
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,
@@ -212,7 +211,7 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 			res.Body.Close()
 
 			require.NoError(t, err)
-			require.Equal(t, http.StatusCreated, res.StatusCode)
+			require.Equal(t, http.StatusOK, res.StatusCode)
 
 			shortURL := string(resBody)
 
@@ -229,25 +228,25 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 	}
 }
 
-func getRouter(defaultStructure *innerStructure) *chi.Mux {
+func getRouter(testStructure *innerStructure) *chi.Mux {
 
-	if defaultStructure == nil {
-		defaultStructure = &innerStructure{}
+	if testStructure == nil {
+		testStructure = &innerStructure{}
 	}
 
-	if defaultStructure != nil && defaultStructure.store == nil {
-		defaultStructure.store = repository.NewStore(nil)
+	if testStructure != nil && testStructure.store == nil {
+		testStructure.store = repository.NewStore(nil)
 	}
 
-	if defaultStructure != nil && defaultStructure.hasher == nil {
-		defaultStructure.hasher = hasher.NewHasher("SomeSecret")
+	if testStructure != nil && testStructure.strGen == nil {
+		testStructure.strGen = &service.StrGenerator{}
 	}
 
-	if defaultStructure != nil && defaultStructure.config == nil {
-		defaultStructure.config = config.GetConfig()
+	if testStructure != nil && testStructure.config == nil {
+		testStructure.config = config.GetConfig()
 	}
 
-	shortifier := shortifier.NewShortifier(defaultStructure.hasher, defaultStructure.store, &defaultStructure.config.RedirectDomain)
+	shortifier := service.NewShortifier(testStructure.strGen, testStructure.store, &testStructure.config.RedirectDomain)
 
 	h := &handler.Handlers{
 		Shortifier: shortifier,

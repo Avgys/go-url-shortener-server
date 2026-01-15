@@ -4,13 +4,13 @@ import "math/rand"
 
 const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-type UrlGenerator struct{}
+type StrGenerator struct{}
 
-func NewUrlGenerator() *UrlGenerator {
-	return &UrlGenerator{}
+func NewStringGenerator() *StrGenerator {
+	return &StrGenerator{}
 }
 
-func (*UrlGenerator) GetRandomString(n int) string {
+func (StrGenerator) GetRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letters[rand.Intn(len(letters))]

@@ -33,7 +33,7 @@ func run() error {
 
 func prepareRouter(cfg *config.Config) *chi.Mux {
 	store := repository.NewStore(nil)
-	generator := service.NewUrlGenerator()
+	generator := service.NewStringGenerator()
 
 	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
 

@@ -8,6 +8,19 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type Handlers struct {
+	Shortifier Shortifier
+}
+
+type Shortifier interface {
+	ResolveShortURL(shortURL string) (string, error)
+	ShortifyURL(url string) (string, error)
+}
+
+func NewHandlers(shortifier Shortifier) *Handlers {
+	return &Handlers{Shortifier: shortifier}
+}
+
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	url, err := getRequestBody(r)
@@ -19,12 +32,13 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	isCreated := false
 	resultURL := ""
 
-	if resultURL, isCreated, err = h.Shortifier.ShortifyURL(url); err != nil {
+	if resultURL, err = h.Shortifier.ShortifyURL(url); err != nil {
 		if errors.Is(err, service.ErrInvalidURL) {
 			writeError(w, r, err, http.StatusBadRequest)
 		} else {
 			writeError(w, r, err, http.StatusInternalServerError)
 		}
+
 		return
 	}
 
@@ -45,7 +59,12 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	url = chi.URLParam(r, "url")
 
 	if url, err = h.Shortifier.ResolveShortURL(url); err != nil {
-		writeError(w, r, err, http.StatusNotFound)
+
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, r, err, http.StatusNotFound)
+		} else {
+			writeError(w, r, err, http.StatusInternalServerError)
+		}
 		return
 	}
 

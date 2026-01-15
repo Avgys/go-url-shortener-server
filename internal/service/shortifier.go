@@ -16,6 +16,8 @@ const maxStoreRetryCount = 20
 
 var (
 	ErrInvalidURL = errors.New("url in wrong format")
+	ErrCollision  = errors.New("could not find free space to store url")
+	ErrNotFound   = errors.New("url not found")
 )
 
 type StringGenerator interface {
@@ -48,13 +50,15 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 
 	shortURL := ""
 
-	for i := 0; i < maxStoreRetryCount; i++ {
+	for range maxStoreRetryCount {
 		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
 
 		if err := s.store.StoreURL(trimmedURL, shortURL); err != nil {
 			if !errors.Is(err, repository.ErrCollision) {
-				return "", err
+				return "", ErrCollision
 			}
+		} else {
+			break
 		}
 	}
 
@@ -75,7 +79,9 @@ func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
 
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return "", fmt.Errorf("%s %w", shortURL, err)
+			return "", fmt.Errorf("%s %w, inner error: %w", shortURL, ErrNotFound, err)
+		} else {
+			return "", err
 		}
 	}
 

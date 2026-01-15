@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -11,7 +11,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
@@ -23,6 +23,7 @@ func TestRouter(t *testing.T) {
 
 	redirectURL := "http://someurl"
 	host := ts.URL
+	awaitedURL, _ := url.JoinPath(host, testcommon.ShortHash)
 
 	var testTable = []struct {
 		name    string
@@ -30,7 +31,7 @@ func TestRouter(t *testing.T) {
 		want    testcommon.ResponseWant
 	}{
 		{name: "Store url", request: getStoreRequest(t, host, redirectURL),
-			want: testcommon.ResponseWant{StatusCode: http.StatusCreated, Body: fmt.Sprintf("%s/%s", host, testcommon.ShortHash)}},
+			want: testcommon.ResponseWant{StatusCode: http.StatusOK, Body: awaitedURL}},
 		{name: "Redirect url", request: getRedirectRequest(t, host, testcommon.ShortHash),
 			want: testcommon.ResponseWant{StatusCode: http.StatusTemporaryRedirect, Body: "", Headers: map[string]string{"Location": redirectURL}}},
 	}
@@ -48,9 +49,9 @@ func getTestRouter() *httptest.Server {
 
 	cfg := config.GetConfig()
 	store := repository.NewStore(nil)
-	hashFunc := &testcommon.MockHasher{}
+	strGen := &testcommon.MockStrGen{}
 
-	shortifier := shortifier.NewShortifier(hashFunc, store, &cfg.RedirectDomain)
+	shortifier := service.NewShortifier(strGen, store, &cfg.RedirectDomain)
 	h := &handler.Handlers{Shortifier: shortifier}
 
 	ts := httptest.NewServer(router.NewRouter(h))

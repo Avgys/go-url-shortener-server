@@ -72,11 +72,19 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 
 	enc := json.NewEncoder(log.Writer())
 	enc.SetIndent("", "  ")
-	err = enc.Encode(payload)
+	encErr := enc.Encode(payload)
 
-	if err != nil {
-		log.Printf("error marshaling request payload, %s", err.Error())
+	if encErr != nil {
+		log.Printf("error marshaling request payload, %s", encErr.Error())
 	}
 
-	http.Error(w, http.StatusText(statusCode), statusCode)
+	errorText := ""
+
+	if statusCode >= 500 {
+		errorText = http.StatusText(statusCode)
+	} else {
+		errorText = err.Error()
+	}
+
+	http.Error(w, errorText, statusCode)
 }
