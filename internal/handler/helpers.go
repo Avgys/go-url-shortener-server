@@ -50,6 +50,22 @@ func writeResponse(w http.ResponseWriter, text string, code int) {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
+
+	log.Printf("error proccessing request, %s", err.Error())
+
+	errorText := ""
+
+	if statusCode >= 500 {
+		logRequest(r, err)
+		errorText = http.StatusText(statusCode)
+	} else {
+		errorText = err.Error()
+	}
+
+	http.Error(w, errorText, statusCode)
+}
+
+func logRequest(r *http.Request, err error) {
 	payload := struct {
 		Method      string      `json:"method"`
 		Path        string      `json:"path"`
@@ -68,8 +84,6 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 		Error:       err.Error(),
 	}
 
-	log.Printf("error proccessing request, %s", err.Error())
-
 	enc := json.NewEncoder(log.Writer())
 	enc.SetIndent("", "  ")
 	encErr := enc.Encode(payload)
@@ -77,14 +91,4 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 	if encErr != nil {
 		log.Printf("error marshaling request payload, %s", encErr.Error())
 	}
-
-	errorText := ""
-
-	if statusCode >= 500 {
-		errorText = http.StatusText(statusCode)
-	} else {
-		errorText = err.Error()
-	}
-
-	http.Error(w, errorText, statusCode)
 }

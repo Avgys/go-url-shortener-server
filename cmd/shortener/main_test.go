@@ -23,7 +23,7 @@ func TestRouter(t *testing.T) {
 
 	redirectURL := "http://someurl"
 	host := ts.URL
-	awaitedURL, _ := url.JoinPath(host, testcommon.ShortHash)
+	awaitedURL, _ := url.JoinPath(host, testcommon.TestStr)
 
 	var testTable = []struct {
 		name    string
@@ -31,8 +31,8 @@ func TestRouter(t *testing.T) {
 		want    testcommon.ResponseWant
 	}{
 		{name: "Store url", request: getStoreRequest(t, host, redirectURL),
-			want: testcommon.ResponseWant{StatusCode: http.StatusOK, Body: awaitedURL}},
-		{name: "Redirect url", request: getRedirectRequest(t, host, testcommon.ShortHash),
+			want: testcommon.ResponseWant{StatusCode: http.StatusCreated, Body: awaitedURL}},
+		{name: "Redirect url", request: getRedirectRequest(t, host, testcommon.TestStr),
 			want: testcommon.ResponseWant{StatusCode: http.StatusTemporaryRedirect, Body: "", Headers: map[string]string{"Location": redirectURL}}},
 	}
 	for _, tt := range testTable {

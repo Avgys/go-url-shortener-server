@@ -37,7 +37,6 @@ type Shortifier struct {
 }
 
 func NewShortifier(stringGenerator StringGenerator, store Repository, redirectAddr *config.NetAddress) *Shortifier {
-
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 

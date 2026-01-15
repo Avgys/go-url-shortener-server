@@ -28,8 +28,6 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err, http.StatusBadRequest)
 		return
 	}
-
-	isCreated := false
 	resultURL := ""
 
 	if resultURL, err = h.Shortifier.ShortifyURL(url); err != nil {
@@ -42,14 +40,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var status int
-	if isCreated {
-		status = http.StatusCreated
-	} else {
-		status = http.StatusOK
-	}
-
-	writeResponse(w, resultURL, status)
+	writeResponse(w, resultURL, http.StatusCreated)
 }
 
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {

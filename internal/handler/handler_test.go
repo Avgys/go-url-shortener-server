@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -91,6 +92,7 @@ func Test_handlers_Redirect(t *testing.T) {
 func Test_handlers_ShortifyURL(t *testing.T) {
 
 	host := "http://localhost:8080"
+	awaitedStr, _ := url.JoinPath(host, testcommon.TestStr)
 
 	tests := []struct {
 		name             string
@@ -106,8 +108,8 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 			},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusOK,
-				Body:       fmt.Sprintf("%s/%s", host, testcommon.ShortHash),
+				StatusCode: http.StatusCreated,
+				Body:       awaitedStr,
 			},
 		},
 		{
@@ -125,8 +127,8 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusOK,
-				Body:       fmt.Sprintf("%s/%s", host, testcommon.TestStr),
+				StatusCode: http.StatusCreated,
+				Body:       awaitedStr,
 			},
 		},
 		{
@@ -211,7 +213,7 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 			res.Body.Close()
 
 			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, res.StatusCode)
+			require.Equal(t, http.StatusCreated, res.StatusCode)
 
 			shortURL := string(resBody)
 

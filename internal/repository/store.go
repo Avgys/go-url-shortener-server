@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"maps"
 	"sync"
 )
 
@@ -18,9 +19,7 @@ type Store struct {
 func NewStore(initData map[string]string) *Store {
 	s := &Store{data: make(map[string]string)}
 
-	for k, v := range initData {
-		s.data[k] = v
-	}
+	maps.Copy(s.data, initData)
 
 	return s
 }
