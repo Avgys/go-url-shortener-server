@@ -2,10 +2,10 @@ package config
 
 import (
 	"flag"
-	"log"
 	"reflect"
 
 	"github.com/caarlos0/env/v6"
+	"github.com/rs/zerolog/log"
 )
 
 type Config struct {
@@ -28,7 +28,9 @@ func GetConfig(args []string) (*Config, error) {
 		return nil, err
 	}
 
-	log.Printf("ServerAddr: %s, RedirectAddr: %s", cfg.AppURL.String(), cfg.RedirectDomain.String())
+	log.Info().
+		Str("ServerAddr", cfg.AppURL.String()).
+		Str("RedirectAddr", cfg.RedirectDomain.String())
 
 	return cfg, nil
 }
