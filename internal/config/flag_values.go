@@ -41,3 +41,15 @@ func (addr *NetAddress) Set(input string) error {
 
 	return nil
 }
+
+func NewNetAddress(input string) (*NetAddress, error) {
+	address := &NetAddress{}
+
+	err := address.Set(input)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return address, nil
+}
