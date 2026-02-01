@@ -1,10 +1,11 @@
 package middlewares
 
 import (
+	"math/rand"
 	"net/http"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
 )
 
 type (
@@ -20,9 +21,20 @@ type (
 )
 
 func WithLogging(h http.Handler) http.Handler {
+
+	log := logger.Log
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		startTime := time.Now()
+
+		traceId := rand.Int63()
+
+		log.Info().
+			Int64("TraceId", traceId).
+			Str("Path", r.RequestURI).
+			Str("Method", r.Method).
+			Msg("Started processing")
 
 		wrappedWriter := wrapWriter(w)
 
@@ -31,6 +43,7 @@ func WithLogging(h http.Handler) http.Handler {
 		executionTime := time.Since(startTime)
 
 		log.Info().
+			Int64("TraceId", traceId).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Dur("Excecution time", executionTime).

@@ -7,45 +7,56 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
+
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 )
 
+const maxBody = 1 << 20
+
 var (
-	errWrongContentType         = errors.New("wrong content-type")
 	errInternalErrorReadingBody = errors.New("got error reading url")
 	ErrEmptyParamBody           = errors.New("empty param body")
 )
 
-func getRequestBody(r *http.Request) (string, error) {
-
-	if !strings.Contains(r.Header.Get("Content-Type"), "text/plain") {
-		return "", fmt.Errorf("%w: %v", errWrongContentType, r.Header.Get("Content-type"))
-	}
+func getRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
 	buffer := make([]byte, 128)
 	readBytes := 0
 	var err error
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+
 	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
 		fmt.Printf("got error %v\n", err)
 
-		return "", errInternalErrorReadingBody
+		return nil, errInternalErrorReadingBody
 	}
 
 	if readBytes == 0 {
-		return "", ErrEmptyParamBody
+		return nil, ErrEmptyParamBody
 	}
 
-	url := string(buffer[:readBytes])
-
-	return url, nil
+	return buffer[:readBytes], nil
 }
 
-func writeResponse(w http.ResponseWriter, text string, code int) {
+func writeResponse(w http.ResponseWriter, resp []byte, code int) {
 
 	w.WriteHeader(code)
-	if text != "" {
-		w.Write([]byte(text))
+	if len(resp) > 0 {
+		w.Write(resp)
+	}
+}
+
+func getErrorStatusCode(err error) int {
+	if errors.Is(err, service.ErrInvalidURL) || errors.Is(err, service.ErrEmptyURL) {
+		return http.StatusBadRequest
+	} else if errors.Is(err, service.ErrCollision) {
+		return http.StatusServiceUnavailable
+	} else if errors.Is(err, service.ErrNotFound) {
+		return http.StatusNotFound
+	} else {
+		return http.StatusInternalServerError
 	}
 }
 
@@ -55,8 +66,9 @@ func writeError(w http.ResponseWriter, r *http.Request, err error, statusCode in
 
 	errorText := ""
 
+	logRequest(r, err)
+
 	if statusCode >= 500 {
-		logRequest(r, err)
 		errorText = http.StatusText(statusCode)
 	} else {
 		errorText = err.Error()
@@ -89,6 +101,9 @@ func logRequest(r *http.Request, err error) {
 	encErr := enc.Encode(payload)
 
 	if encErr != nil {
-		log.Printf("error marshaling request payload, %s", encErr.Error())
+		logger.Log.
+			Error().
+			Str("error_reason", "error marshaling request payload").
+			Err(encErr)
 	}
 }

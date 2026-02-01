@@ -3,6 +3,7 @@ package testcommon
 import (
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func CheckResponseFields(t *testing.T, res *http.Response, want ResponseWant) {
 	if contentType == "application/json" {
 		assert.JSONEq(t, want.Body, string(resBody))
 	} else {
-		assert.Equal(t, want.Body, string(resBody))
+		assert.Equal(t, want.Body, strings.TrimRight(string(resBody), "\n"))
 	}
 
 	if want.Headers != nil {

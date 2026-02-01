@@ -38,13 +38,14 @@ func GetConfig(args []string) (*Config, error) {
 func parseEnv(cfg *Config) error {
 	err := env.ParseWithFuncs(cfg, map[reflect.Type]env.ParserFunc{
 		reflect.TypeOf(NetAddress{}): func(v string) (interface{}, error) {
-			val, err := NewNetAddress(v)
+			netAddress := NetAddress{}
+			err := netAddress.Set(v)
 
 			if err != nil {
 				return nil, err
 			}
 
-			return *val, nil
+			return netAddress, nil
 		}})
 
 	if err != nil {

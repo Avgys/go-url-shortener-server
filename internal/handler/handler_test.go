@@ -1,6 +1,8 @@
 package handler_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
+	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
@@ -57,7 +60,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
-				Body:       fmt.Sprintf("%s %s, inner error: %s\n", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
+				Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
 			},
 		},
 		{
@@ -117,7 +120,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       fmt.Sprintf("%s\n", service.ErrInvalidURL.Error()),
+				Body:       service.ErrInvalidURL.Error(),
 			},
 		},
 		{
@@ -127,8 +130,8 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusCreated,
-				Body:       awaitedStr,
+				StatusCode: http.StatusServiceUnavailable,
+				Body:       http.StatusText(http.StatusServiceUnavailable),
 			},
 		},
 		{
@@ -136,7 +139,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       fmt.Sprintf("%s\n", handler.ErrEmptyParamBody),
+				Body:       handler.ErrEmptyParamBody.Error(),
 			},
 		},
 		{
@@ -224,6 +227,98 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 			r.ServeHTTP(recorder, req)
 			res = recorder.Result()
 			defer res.Body.Close()
+
+			testcommon.CheckResponseFields(t, res, tt.want)
+		})
+	}
+}
+
+func Test_handlers_ShortenURL(t *testing.T) {
+
+	host := "http://localhost:8080"
+	requestPath, _ := url.JoinPath(host, "api", "shorten")
+	awaitedStr, _ := url.JoinPath(host, testcommon.TestStr)
+
+	tests := []struct {
+		name             string
+		url              string
+		defaultStructure *innerStructure
+		contentType      string
+		want             testcommon.ResponseWant
+	}{
+		{
+			name: "create shorturl",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				strGen: &testcommon.MockStrGen{},
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusCreated,
+				Body:       fmt.Sprintf(`{"result": "%s"}`, awaitedStr),
+			},
+		},
+		{
+			name: "url wrong format",
+			url:  "/gdfgdfhs",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+				Body:       service.ErrInvalidURL.Error(),
+			},
+		},
+		{
+			name: "url exists",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				strGen: &testcommon.MockStrGen{},
+				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusServiceUnavailable,
+				Body:       http.StatusText(http.StatusServiceUnavailable),
+			},
+		},
+		{
+			name: "Empty body",
+			url:  "",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+				Body:       service.ErrEmptyURL.Error(),
+			},
+		},
+		{
+			name: "Wrong content-type",
+			url:  "http://long-url.com",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusUnsupportedMediaType,
+				Body:       "",
+			},
+			contentType: "text",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			//Init
+
+			jsonBody, err := json.Marshal(model.ShortenReq{Url: tt.url})
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
+
+			if tt.contentType == "" {
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+
+			recorder := httptest.NewRecorder()
+			r := getRouter(tt.defaultStructure)
+
+			//Run
+			r.ServeHTTP(recorder, req)
+			res := recorder.Result()
+			defer res.Body.Close()
+
+			//Check
 
 			testcommon.CheckResponseFields(t, res, tt.want)
 		})

@@ -16,6 +16,7 @@ const maxStoreRetryCount = 20
 
 var (
 	ErrInvalidURL = errors.New("url in wrong format")
+	ErrEmptyURL   = errors.New("empty url")
 	ErrCollision  = errors.New("could not find free space to store url")
 	ErrNotFound   = errors.New("url not found")
 )
@@ -41,6 +42,11 @@ func NewShortifier(stringGenerator StringGenerator, store Repository, redirectAd
 }
 
 func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
+
+	if inputURL == "" {
+		return "", ErrEmptyURL
+	}
+
 	if _, err := shared.GetURL(inputURL, true); err != nil {
 		return "", ErrInvalidURL
 	}
@@ -49,40 +55,37 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 
 	shortURL := ""
 
+	var storeErr error
+
 	for range maxStoreRetryCount {
 		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
+		storeErr = s.store.StoreURL(trimmedURL, shortURL)
 
-		if err := s.store.StoreURL(trimmedURL, shortURL); err != nil {
-			if !errors.Is(err, repository.ErrCollision) {
-				return "", ErrCollision
-			}
-		} else {
+		if storeErr == nil {
 			break
+		} else if !errors.Is(storeErr, repository.ErrCollision) {
+			return "", storeErr
 		}
 	}
 
-	resultURL, err := url.JoinPath(s.redirectAddr.String(), shortURL)
-
-	if err != nil {
-		return "", err
+	if storeErr != nil {
+		return "", ErrCollision
 	}
 
-	return resultURL, nil
+	return url.JoinPath(s.redirectAddr.String(), shortURL)
 }
 
-func (s *Shortifier) ResolveShortURL(shortURL string) (string, error) {
+func (s *Shortifier) ResolveShortURL(inputURL string) (string, error) {
 
-	shortURL = strings.TrimSpace(shortURL)
+	shortURL := strings.TrimSpace(inputURL)
 
 	url, err := s.store.ResolveShortURL(shortURL)
 
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return "", fmt.Errorf("%s %w, inner error: %w", shortURL, ErrNotFound, err)
-		} else {
-			return "", err
+			return url, fmt.Errorf("%s %w, inner error: %w", shortURL, ErrNotFound, err)
 		}
 	}
 
-	return url, nil
+	return url, err
 }
