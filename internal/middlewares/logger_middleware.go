@@ -28,10 +28,10 @@ func WithLogging(h http.Handler) http.Handler {
 
 		startTime := time.Now()
 
-		traceId := rand.Int63()
+		traceID := rand.Int63()
 
 		log.Info().
-			Int64("TraceId", traceId).
+			Int64("TraceId", traceID).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Msg("Started processing")
@@ -43,7 +43,7 @@ func WithLogging(h http.Handler) http.Handler {
 		executionTime := time.Since(startTime)
 
 		log.Info().
-			Int64("TraceId", traceId).
+			Int64("TraceId", traceID).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Dur("Excecution time", executionTime).

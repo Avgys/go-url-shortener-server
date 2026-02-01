@@ -60,14 +60,14 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultURL, err := h.Shortifier.ShortifyURL(reqModel.Url)
+	resultURL, err := h.Shortifier.ShortifyURL(reqModel.URL)
 
 	if err != nil {
 		writeError(w, r, err, getErrorStatusCode(err))
 		return
 	}
 
-	result, err := json.Marshal(model.ShortenResp{Url: resultURL})
+	result, err := json.Marshal(model.ShortenResp{URL: resultURL})
 
 	if err != nil {
 		writeError(w, r, err, http.StatusInternalServerError)

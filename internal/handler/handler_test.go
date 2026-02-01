@@ -299,7 +299,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 
 			//Init
 
-			jsonBody, err := json.Marshal(model.ShortenReq{Url: tt.url})
+			jsonBody, err := json.Marshal(model.ShortenReq{URL: tt.url})
 			require.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
