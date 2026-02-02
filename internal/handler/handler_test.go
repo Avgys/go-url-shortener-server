@@ -17,6 +17,8 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
+	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	"github.com/Avgys/go-url-shortener-server/internal/shared/common_errors"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
@@ -60,7 +62,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
-				Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
+				Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, common_errors.ErrNotFound, repository.ErrNotFound),
 			},
 		},
 		{
@@ -120,7 +122,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       service.ErrInvalidURL.Error(),
+				Body:       common_errors.ErrInvalidURL.Error(),
 			},
 		},
 		{
@@ -139,7 +141,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       handler.ErrEmptyParamBody.Error(),
+				Body:       shared.ErrEmptyParamBody.Error(),
 			},
 		},
 		{
@@ -262,7 +264,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       service.ErrInvalidURL.Error(),
+				Body:       common_errors.ErrInvalidURL.Error(),
 			},
 		},
 		{
@@ -281,7 +283,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       service.ErrEmptyURL.Error(),
+				Body:       common_errors.ErrEmptyURL.Error(),
 			},
 		},
 		{

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
+	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -24,10 +24,10 @@ func NewHandlers(shortifier Shortifier) *Handlers {
 
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
-	body, err := getRequestBody(w, r)
+	body, err := shared.GetRequestBody(w, r)
 
 	if err != nil {
-		writeError(w, r, err, http.StatusBadRequest)
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
@@ -35,19 +35,20 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	resultURL := ""
 
 	if resultURL, err = h.Shortifier.ShortifyURL(url); err != nil {
-		writeError(w, r, err, getErrorStatusCode(err))
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
-	writeResponse(w, []byte(resultURL), http.StatusCreated)
+	w.Header().Set("Content-type", "text/plain")
+	shared.WriteResponse(w, []byte(resultURL), http.StatusCreated)
 }
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
-	body, err := getRequestBody(w, r)
+	body, err := shared.GetRequestBody(w, r)
 
 	if err != nil {
-		writeError(w, r, err, http.StatusBadRequest)
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
@@ -56,26 +57,26 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body, &reqModel)
 
 	if err != nil {
-		writeError(w, r, err, http.StatusBadRequest)
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
 	resultURL, err := h.Shortifier.ShortifyURL(reqModel.URL)
 
 	if err != nil {
-		writeError(w, r, err, getErrorStatusCode(err))
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
 	result, err := json.Marshal(model.ShortenResp{URL: resultURL})
 
 	if err != nil {
-		writeError(w, r, err, http.StatusInternalServerError)
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	writeResponse(w, result, http.StatusCreated)
+	shared.WriteResponse(w, result, http.StatusCreated)
 }
 
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
@@ -85,11 +86,10 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	url = chi.URLParam(r, "url")
 
 	if url, err = h.Shortifier.ResolveShortURL(url); err != nil {
-
-		writeError(w, r, err, getErrorStatusCode(service.ErrNotFound))
+		shared.WriteError(w, r, err, shared.GetErrorStatusCode(err))
 		return
 	}
 
 	w.Header().Set("Location", url)
-	writeResponse(w, nil, http.StatusTemporaryRedirect)
+	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
 }

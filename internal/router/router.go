@@ -14,7 +14,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 	r := chi.NewRouter()
 
-	r.Use(middleware.RealIP, middlewares.WithLogging)
+	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
 
 	r.With(middleware.AllowContentType(textType)).Post("/", h.ShortifyURL)
 	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten", h.ShortenURL)

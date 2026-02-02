@@ -9,17 +9,11 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	"github.com/Avgys/go-url-shortener-server/internal/shared/common_errors"
 )
 
 const shortURLMaxLength = 8
 const maxStoreRetryCount = 20
-
-var (
-	ErrInvalidURL = errors.New("url in wrong format")
-	ErrEmptyURL   = errors.New("empty url")
-	ErrCollision  = errors.New("could not find free space to store url")
-	ErrNotFound   = errors.New("url not found")
-)
 
 type StringGenerator interface {
 	GetRandomString(n int) string
@@ -44,11 +38,11 @@ func NewShortifier(stringGenerator StringGenerator, store Repository, redirectAd
 func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 
 	if inputURL == "" {
-		return "", ErrEmptyURL
+		return "", common_errors.ErrEmptyURL
 	}
 
 	if _, err := shared.GetURL(inputURL, true); err != nil {
-		return "", ErrInvalidURL
+		return "", common_errors.ErrInvalidURL
 	}
 
 	trimmedURL := strings.TrimSpace(inputURL)
@@ -69,7 +63,7 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 	}
 
 	if storeErr != nil {
-		return "", ErrCollision
+		return "", common_errors.ErrCollision
 	}
 
 	return url.JoinPath(s.redirectAddr.String(), shortURL)
@@ -83,7 +77,7 @@ func (s *Shortifier) ResolveShortURL(inputURL string) (string, error) {
 
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return url, fmt.Errorf("%s %w, inner error: %w", shortURL, ErrNotFound, err)
+			return url, fmt.Errorf("%s %w, inner error: %w", shortURL, common_errors.ErrNotFound, err)
 		}
 	}
 
