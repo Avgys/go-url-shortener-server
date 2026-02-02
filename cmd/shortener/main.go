@@ -1,12 +1,9 @@
 package main
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
@@ -21,15 +18,10 @@ var closers = make([]io.Closer, 0)
 
 func main() {
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	if err := run(); err != nil {
 		logger.Log.Fatal().
 			Err(err)
 	}
-
-	<-ctx.Done()
 
 	for _, closer := range closers {
 		closer.Close()
