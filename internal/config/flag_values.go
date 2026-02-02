@@ -7,6 +7,8 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 )
 
+type Filepath string
+
 type NetAddress struct {
 	Scheme         string
 	Host           string
@@ -39,5 +41,16 @@ func (addr *NetAddress) Set(input string) error {
 	addr.Host = u.Host
 	addr.Scheme = u.Scheme
 
+	return nil
+}
+
+func (f *Filepath) String() string {
+
+	return string(*f)
+}
+
+func (f *Filepath) Set(input string) error {
+
+	*f = Filepath(input)
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 type Config struct {
 	AppURL         NetAddress `env:"SERVER_ADDRESS"`
 	RedirectDomain NetAddress `env:"BASE_URL"`
+	FileStorage    Filepath   `env:"FILE_STORAGE_PATH"`
 }
 
 func GetConfig(args []string) (*Config, error) {
@@ -30,29 +31,26 @@ func GetConfig(args []string) (*Config, error) {
 
 	log.Info().
 		Str("ServerAddr", cfg.AppURL.String()).
-		Str("RedirectAddr", cfg.RedirectDomain.String())
+		Str("RedirectAddr", cfg.RedirectDomain.String()).
+		Str("FileStoragePath", cfg.FileStorage.String())
 
 	return cfg, nil
 }
 
 func parseEnv(cfg *Config) error {
 	err := env.ParseWithFuncs(cfg, map[reflect.Type]env.ParserFunc{
-		reflect.TypeOf(NetAddress{}): func(v string) (interface{}, error) {
+		reflect.TypeFor[NetAddress](): func(v string) (interface{}, error) {
 			netAddress := NetAddress{}
 			err := netAddress.Set(v)
+			return netAddress, err
+		},
+		reflect.TypeFor[Filepath](): func(v string) (interface{}, error) {
+			filepath := Filepath(v)
+			return filepath, nil
+		},
+	})
 
-			if err != nil {
-				return nil, err
-			}
-
-			return netAddress, nil
-		}})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func parseFlags(cfg *Config, args []string) error {
@@ -60,12 +58,9 @@ func parseFlags(cfg *Config, args []string) error {
 
 	fs.Var(&cfg.AppURL, "a", "address of HTTP server")
 	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
+	fs.Var(&cfg.FileStorage, "f", "file storage name")
 
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-
-	return nil
+	return fs.Parse(args)
 }
 
 func getDefaultConfig() *Config {
@@ -73,6 +68,7 @@ func getDefaultConfig() *Config {
 
 	cfg.AppURL = NetAddress{Host: "localhost:8080", SchemeRequired: false}
 	cfg.RedirectDomain = NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
+	cfg.FileStorage = "../storage.json"
 
 	return &cfg
 }

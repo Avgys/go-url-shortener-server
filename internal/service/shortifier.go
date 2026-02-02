@@ -25,19 +25,14 @@ type StringGenerator interface {
 	GetRandomString(n int) string
 }
 
-type Repository interface {
-	StoreURL(url string, urlHash string) error
-	ResolveShortURL(shortURL string) (string, error)
-}
-
 type Shortifier struct {
 	domain          string
-	store           Repository
+	store           repository.Repository
 	stringGenerator StringGenerator
 	redirectAddr    *config.NetAddress
 }
 
-func NewShortifier(stringGenerator StringGenerator, store Repository, redirectAddr *config.NetAddress) *Shortifier {
+func NewShortifier(stringGenerator StringGenerator, store repository.Repository, redirectAddr *config.NetAddress) *Shortifier {
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 

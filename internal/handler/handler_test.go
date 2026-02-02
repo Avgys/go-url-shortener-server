@@ -26,7 +26,7 @@ import (
 var testHost config.NetAddress = config.NetAddress{Host: "localhost:8080", Scheme: "http"}
 
 type innerStructure struct {
-	store      service.Repository
+	store      repository.Repository
 	strGen     service.StringGenerator
 	shortifier *service.Shortifier
 	handlers   *handler.Handlers

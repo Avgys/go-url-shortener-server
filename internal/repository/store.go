@@ -1,23 +1,19 @@
 package repository
 
 import (
-	"errors"
 	"maps"
 	"sync"
 )
 
-var (
-	ErrCollision = errors.New("slot in dictionary taken")
-	ErrNotFound  = errors.New("url not found in store")
-)
+type storage map[string]string
 
 type Store struct {
-	data map[string]string
+	data storage
 	mux  sync.Mutex
 }
 
-func NewStore(initData map[string]string) *Store {
-	s := &Store{data: make(map[string]string)}
+func NewStore(initData storage) *Store {
+	s := &Store{data: make(storage)}
 
 	maps.Copy(s.data, initData)
 
@@ -49,4 +45,10 @@ func (s *Store) ResolveShortURL(shortURL string) (string, error) {
 	}
 
 	return url, err
+}
+
+func (s *Store) getAll() storage {
+	result := make(map[string]string)
+	maps.Copy(result, result)
+	return result
 }

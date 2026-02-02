@@ -19,7 +19,9 @@ func WriteResponse(w http.ResponseWriter, resp []byte, code int) {
 }
 
 func GetErrorStatusCode(err error) int {
-	if errors.Is(err, service.ErrInvalidURL) || errors.Is(err, service.ErrEmptyURL) {
+	if errors.Is(err, service.ErrInvalidURL) ||
+		errors.Is(err, service.ErrEmptyURL) ||
+		errors.Is(err, ErrEmptyParamBody) {
 		return http.StatusBadRequest
 	} else if errors.Is(err, service.ErrCollision) {
 		return http.StatusServiceUnavailable
