@@ -34,6 +34,7 @@ func WithLogging(h http.Handler) http.Handler {
 			Int64("TraceId", traceID).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
+			Str("Content-type", r.Header.Get("Content-type")).
 			Msg("Started processing")
 
 		wrappedWriter := wrapWriter(w)

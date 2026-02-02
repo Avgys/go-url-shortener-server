@@ -8,6 +8,7 @@ import (
 )
 
 const textType = "text/plain"
+const xgzipType = "application/x-gzip"
 const jsonType = "application/json"
 
 func NewRouter(h *handler.Handlers) *chi.Mux {
@@ -16,7 +17,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
 
-	r.With(middleware.AllowContentType(textType)).Post("/", h.ShortifyURL)
+	r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
 	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten", h.ShortenURL)
 	r.Get("/{url}", h.Redirect)
 
