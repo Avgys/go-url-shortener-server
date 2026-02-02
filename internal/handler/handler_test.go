@@ -17,8 +17,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
-	"github.com/Avgys/go-url-shortener-server/internal/shared/common_errors"
+	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
@@ -62,7 +61,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
-				Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, common_errors.ErrNotFound, repository.ErrNotFound),
+				Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
 			},
 		},
 		{
@@ -122,7 +121,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       common_errors.ErrInvalidURL.Error(),
+				Body:       service.ErrInvalidURL.Error(),
 			},
 		},
 		{
@@ -141,7 +140,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       shared.ErrEmptyParamBody.Error(),
+				Body:       httpShared.ErrEmptyParamBody.Error(),
 			},
 		},
 		{
@@ -264,7 +263,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "/gdfgdfhs",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       common_errors.ErrInvalidURL.Error(),
+				Body:       service.ErrInvalidURL.Error(),
 			},
 		},
 		{
@@ -283,7 +282,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusBadRequest,
-				Body:       common_errors.ErrEmptyURL.Error(),
+				Body:       service.ErrEmptyURL.Error(),
 			},
 		},
 		{

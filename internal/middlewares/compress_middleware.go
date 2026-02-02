@@ -2,16 +2,22 @@ package middlewares
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 )
 
 const acceptEncoding = "Accept-Encoding"
 const contentEncoding = "Content-Encoding"
 const contentType = "Content-Type"
+const gzipType = "gzip"
+
+var (
+	errNoEncoder = errors.New("no encoder")
+)
 
 func WithCompression(h http.Handler) http.Handler {
 
@@ -22,19 +28,25 @@ func WithCompression(h http.Handler) http.Handler {
 			cBody, err := newCompressReader(r.Body, r.Header.Get(contentEncoding))
 
 			if err != nil {
-				shared.WriteError(w, r, err, http.StatusInternalServerError)
+				httpShared.WriteError(w, r, err, http.StatusInternalServerError)
 				return
 			}
 
 			r.Body = cBody
+			var closer io.Closer = nil
 
-			w, err = newCompressWriter(w, r.Header.Get(acceptEncoding))
+			w, closer, err = newCompressWriter(w, r.Header.Get(acceptEncoding))
 
 			if err != nil {
-				shared.WriteError(w, r, err, http.StatusInternalServerError)
+				httpShared.WriteError(w, r, err, http.StatusInternalServerError)
 				return
 			}
+
+			if closer != nil {
+				defer closer.Close()
+			}
 		}
+
 		h.ServeHTTP(w, r)
 	})
 }
@@ -61,27 +73,36 @@ func newCompressReader(r io.ReadCloser, contentType string) (io.ReadCloser, erro
 
 type compressWriter struct {
 	http.ResponseWriter
-	Writer io.Writer
+	Writer io.WriteCloser
 }
 
-func (w compressWriter) Write(b []byte) (int, error) {
+func (w *compressWriter) Write(b []byte) (int, error) {
+	defer w.Writer.Close()
 	return w.Writer.Write(b)
 }
 
-const gzipType = "gzip"
+func (w *compressWriter) Close() error {
+	return w.Writer.Close()
+}
 
-func newCompressWriter(w http.ResponseWriter, contentType string) (http.ResponseWriter, error) {
+func newCompressWriter(w http.ResponseWriter, contentType string) (http.ResponseWriter, io.Closer, error) {
+
+	var encodeWriter *compressWriter = nil
+
 	if strings.Contains(contentType, gzipType) {
-
 		gzipWriter, err := gzip.NewWriterLevel(w, gzip.DefaultCompression)
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		w.Header().Set(contentEncoding, gzipType)
-		w = compressWriter{ResponseWriter: w, Writer: gzipWriter}
+		encodeWriter = &compressWriter{ResponseWriter: w, Writer: gzipWriter}
+		encodeWriter.Header().Set(contentEncoding, gzipType)
 	}
 
-	return w, nil
+	if encodeWriter != nil {
+		return encodeWriter, encodeWriter, nil
+	}
+
+	return w, nil, nil
 }

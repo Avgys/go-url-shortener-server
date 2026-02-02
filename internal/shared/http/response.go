@@ -1,4 +1,4 @@
-package shared
+package http
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/shared/common_errors"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 )
 
 const maxBody = 1 << 20
@@ -19,11 +19,11 @@ func WriteResponse(w http.ResponseWriter, resp []byte, code int) {
 }
 
 func GetErrorStatusCode(err error) int {
-	if errors.Is(err, common_errors.ErrInvalidURL) || errors.Is(err, common_errors.ErrEmptyURL) {
+	if errors.Is(err, service.ErrInvalidURL) || errors.Is(err, service.ErrEmptyURL) {
 		return http.StatusBadRequest
-	} else if errors.Is(err, common_errors.ErrCollision) {
+	} else if errors.Is(err, service.ErrCollision) {
 		return http.StatusServiceUnavailable
-	} else if errors.Is(err, common_errors.ErrNotFound) {
+	} else if errors.Is(err, service.ErrNotFound) {
 		return http.StatusNotFound
 	} else {
 		return http.StatusInternalServerError

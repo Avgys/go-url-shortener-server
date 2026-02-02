@@ -1,10 +1,15 @@
 package shared
 
 import (
+	"errors"
 	"net/url"
 	"strings"
+)
 
-	"github.com/Avgys/go-url-shortener-server/internal/shared/common_errors"
+var (
+	ErrEmptyURL       = errors.New("empty url")
+	ErrEmptyHost      = errors.New("empty host")
+	ErrNotValidScheme = errors.New("not valid scheme")
 )
 
 func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
@@ -13,7 +18,7 @@ func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
 	u := &url.URL{}
 
 	if s == "" {
-		return u, common_errors.ErrEmptyURL
+		return u, ErrEmptyURL
 	}
 
 	// Parse as-is first
@@ -36,7 +41,7 @@ func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
 	// Validate or normalize scheme
 	if isSchemeRequired {
 		if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
-			return parsed, common_errors.ErrNotValidScheme
+			return parsed, ErrNotValidScheme
 		}
 	} else {
 		// Default to http when scheme is not required and missing
@@ -46,7 +51,7 @@ func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
 	}
 
 	if parsed.Host == "" {
-		return parsed, common_errors.ErrEmptyHost
+		return parsed, ErrEmptyHost
 	}
 
 	return parsed, nil

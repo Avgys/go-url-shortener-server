@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/go-chi/chi/v5"
 )
 
