@@ -13,11 +13,10 @@ var (
 )
 
 type FileStore struct {
-	store       Repository
-	file        *os.File
-	appender    *json.Encoder
-	isClosed    bool
-	recordCount int
+	store    Repository
+	file     *os.File
+	appender *json.Encoder
+	isClosed bool
 }
 
 type record struct {
@@ -66,7 +65,7 @@ func NewFileStore(filename string) (*FileStore, error) {
 	appender := json.NewEncoder(file)
 	appender.SetEscapeHTML(false)
 
-	return &FileStore{file: file, store: NewStore(records), appender: appender, recordCount: len(records)}, nil
+	return &FileStore{file: file, store: NewStore(records), appender: appender}, nil
 }
 
 func clearFile(file *os.File) {

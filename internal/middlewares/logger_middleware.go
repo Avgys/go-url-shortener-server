@@ -22,16 +22,18 @@ type (
 
 func WithLogging(h http.Handler) http.Handler {
 
-	log := logger.Log
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		startTime := time.Now()
 
-		traceID := rand.Int63()
+		spanID := rand.Int63()
+		reqCtx := r.Context()
+		log := logger.NewLogger(reqCtx, spanID)
+
+		reqCtx = log.WithContext(reqCtx)
+		r = r.WithContext(reqCtx)
 
 		log.Info().
-			Int64("TraceId", traceID).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Str("Content-type", r.Header.Get("Content-type")).
@@ -44,7 +46,6 @@ func WithLogging(h http.Handler) http.Handler {
 		executionTime := time.Since(startTime)
 
 		log.Info().
-			Int64("TraceId", traceID).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Dur("Excecution time", executionTime).

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
 )
 
 var (
@@ -30,5 +32,11 @@ func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		return nil, ErrEmptyParamBody
 	}
 
-	return buffer[:readBytes], nil
+	result := buffer[:readBytes]
+
+	traceLogger := logger.FromContext(r.Context())
+	traceLogger.Info().
+		Str("Request body", string(result))
+
+	return result, nil
 }

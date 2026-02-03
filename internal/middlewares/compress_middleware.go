@@ -2,11 +2,11 @@ package middlewares
 
 import (
 	"compress/gzip"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 )
 
@@ -14,18 +14,21 @@ const acceptEncodingHeader = "Accept-Encoding"
 const contentEncodingHeader = "Content-Encoding"
 const contentTypeHeader = "Content-Type"
 const gzipType = "gzip"
-
-var (
-	errNoEncoder = errors.New("no encoder")
-)
+const noResult = "no result"
 
 func WithCompression(h http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if isDecompessableType(r.Header.Get(contentTypeHeader), r.Header.Get(contentEncodingHeader)) {
+		traceLogger := logger.FromContext(r.Context()).With().Str("middleware", "compress").Logger()
 
-			cBody, err := newCompressReader(r.Body, r.Header.Get(contentEncodingHeader))
+		reqContentType := r.Header.Get(contentTypeHeader)
+		reqDecodeType := r.Header.Get(contentEncodingHeader)
+
+		decodeType := getDecodeType(reqContentType, reqDecodeType)
+		if decodeType != noResult {
+
+			cBody, err := newCompressReader(r.Body, decodeType)
 
 			if err != nil {
 				httpShared.WriteError(w, r, err, http.StatusInternalServerError)
@@ -35,10 +38,13 @@ func WithCompression(h http.Handler) http.Handler {
 			r.Body = cBody
 		}
 
-		if isCompessableType(r.Header.Get(acceptEncodingHeader)) {
+		reqEncodeType := r.Header.Get(acceptEncodingHeader)
+		encodeType := getEncodeType(reqEncodeType)
+
+		if encodeType != noResult {
 
 			var closer io.Closer = nil
-			writer, closer, err := newCompressWriter(w, r.Header.Get(acceptEncodingHeader))
+			writer, closer, err := newCompressWriter(w, encodeType)
 
 			if err != nil {
 				httpShared.WriteError(w, r, err, http.StatusInternalServerError)
@@ -53,14 +59,22 @@ func WithCompression(h http.Handler) http.Handler {
 
 		}
 
+		traceLogger.Info().
+			Str("Request Content-type", reqContentType).
+			Str("Request Decode-type", reqDecodeType).
+			Str("Decode-type", decodeType).
+			Str("Request Encode-type", reqEncodeType).
+			Str("Encode-type", encodeType).
+			Send()
+
 		h.ServeHTTP(w, r)
 	})
 }
 
 var typesToDecompress = []string{"application/json", "text/plain", "application/x-gzip"}
-var supportedEncodings = []string{"gzip"}
+var supportedEncodings = []string{gzipType}
 
-func isDecompessableType(contentType, contentEncoding string) bool {
+func getDecodeType(contentType, contentEncoding string) string {
 
 	isSupportedContentType := false
 
@@ -71,30 +85,32 @@ func isDecompessableType(contentType, contentEncoding string) bool {
 		}
 	}
 
-	isSupportedEncodeType := false
+	if !isSupportedContentType {
+		return noResult
+	}
 
 	for _, supportedEncoding := range supportedEncodings {
 		if strings.Contains(contentEncoding, supportedEncoding) {
-			isSupportedEncodeType = true
-			break
+			return supportedEncoding
 		}
 	}
 
-	return isSupportedContentType && isSupportedEncodeType
+	return noResult
 }
 
-func isCompessableType(acceptEncoding string) bool {
+func getEncodeType(acceptEncoding string) string {
 
 	for _, supportedEncoding := range supportedEncodings {
 		if strings.Contains(acceptEncoding, supportedEncoding) {
-			return true
+			return supportedEncoding
 		}
 	}
-	return false
+
+	return noResult
 }
 
 func newCompressReader(r io.ReadCloser, contentType string) (io.ReadCloser, error) {
-	if strings.Contains(contentType, "gzip") {
+	if strings.Contains(contentType, gzipType) {
 		return gzip.NewReader(r)
 	}
 
@@ -119,7 +135,7 @@ func newCompressWriter(w http.ResponseWriter, contentType string) (http.Response
 
 	var encodeWriter *compressWriter = nil
 
-	if strings.Contains(contentType, gzipType) {
+	if contentType == gzipType {
 		gzipWriter, err := gzip.NewWriterLevel(w, gzip.DefaultCompression)
 
 		if err != nil {

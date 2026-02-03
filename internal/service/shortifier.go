@@ -56,14 +56,21 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
 		storeErr = s.store.StoreURL(trimmedURL, shortURL)
 
-		if storeErr == nil {
-			break
-		} else if !errors.Is(storeErr, repository.ErrCollision) {
-			return "", storeErr
+		if storeErr != nil {
+			// if collision try again
+			if errors.Is(storeErr, repository.ErrCollision) {
+				continue
+			} else {
+				return "", storeErr
+			}
 		}
+
+		// if no errors, then value stored successfuly
+		break
 	}
 
-	if storeErr != nil {
+	// tries exceed retry count
+	if storeErr != nil && errors.Is(storeErr, repository.ErrCollision) {
 		return "", ErrCollision
 	}
 

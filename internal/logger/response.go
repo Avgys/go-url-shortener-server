@@ -29,8 +29,10 @@ func LogRequest(r *http.Request, err error) {
 	enc.SetIndent("", "  ")
 	encErr := enc.Encode(payload)
 
+	traceLogger := FromContext(r.Context())
+
 	if encErr != nil {
-		Log.
+		traceLogger.
 			Error().
 			Str("error_reason", "error marshaling request payload").
 			Err(encErr)

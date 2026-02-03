@@ -19,7 +19,7 @@ var closers = make([]io.Closer, 0)
 func main() {
 
 	if err := run(); err != nil {
-		logger.Log.Fatal().
+		logger.DefaulLogger.Fatal().
 			Err(err)
 	}
 
