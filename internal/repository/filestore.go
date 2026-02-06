@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ var (
 )
 
 type FileStore struct {
-	store    Repository
+	store    *InMemoryStore
 	file     *os.File
 	appender *json.Encoder
 	isClosed bool
@@ -28,11 +29,11 @@ func NewFileStore(filename string) (*FileStore, error) {
 	path := filename
 
 	if !filepath.IsAbs(path) {
-
 		var err error
 		path, err = filepath.Abs(path)
 
 		if err != nil {
+			err = fmt.Errorf("error getting path to store file, %w", err)
 			return nil, err
 		}
 	}
@@ -40,6 +41,7 @@ func NewFileStore(filename string) (*FileStore, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
 
 	if err != nil {
+		err = fmt.Errorf("error opening store file, %w", err)
 		return nil, err
 	}
 
@@ -56,6 +58,7 @@ func NewFileStore(filename string) (*FileStore, error) {
 				break
 			}
 
+			err = fmt.Errorf("error parsing store file, %w ", err)
 			return nil, err
 		}
 
@@ -82,7 +85,7 @@ func (fs *FileStore) Close() error {
 
 	s := fs.getAll()
 
-	for k, v := range s {
+	for k, v := range *s {
 		fs.append(&record{ShortURL: k, FullURL: v})
 	}
 
@@ -114,6 +117,6 @@ func (fs *FileStore) append(record *record) {
 	fs.appender.Encode(record)
 }
 
-func (fs *FileStore) getAll() storage {
+func (fs *FileStore) getAll() *storage {
 	return fs.store.getAll()
 }

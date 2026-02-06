@@ -14,6 +14,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +48,7 @@ func TestRouter(t *testing.T) {
 
 func getTestRouter() *httptest.Server {
 
-	cfg, _ := config.GetConfig([]string{})
+	cfg, _ := config.GetConfig([]string{}, &zerolog.Logger{})
 	store := repository.NewStore(nil)
 	strGen := &testcommon.MockStrGen{}
 

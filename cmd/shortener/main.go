@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"os"
 
@@ -12,30 +11,30 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog"
 )
-
-var closers = make([]io.Closer, 0)
 
 func main() {
 
-	if err := run(); err != nil {
-		logger.DefaulLogger.Fatal().
-			Err(err)
-	}
+	logger := logger.NewLogger().
+		With().
+		Str("component", "initialize").
+		Logger()
 
-	for _, closer := range closers {
-		closer.Close()
+	if err := run(&logger); err != nil {
+		logger.Fatal().
+			Err(err)
 	}
 }
 
-func run() error {
-	cfg, err := config.GetConfig(os.Args[1:])
+func run(traceLogger *zerolog.Logger) error {
+	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
 
 	if err != nil {
 		return err
 	}
 
-	r, err := prepareRouter(cfg)
+	r, err := prepareRouter(cfg, traceLogger)
 
 	if err != nil {
 		return err
@@ -49,7 +48,7 @@ func run() error {
 	return srv.ListenAndServe()
 }
 
-func prepareRouter(cfg *config.Config) (*chi.Mux, error) {
+func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error) {
 	store, err := repository.NewFileStore(string(cfg.FileStorage))
 
 	if err != nil {

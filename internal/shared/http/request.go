@@ -1,17 +1,11 @@
 package http
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
-)
-
-var (
-	errInternalErrorReadingBody = errors.New("got error reading url")
-	ErrEmptyParamBody           = errors.New("empty param body")
 )
 
 func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
@@ -25,11 +19,11 @@ func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
 		fmt.Printf("got error %v\n", err)
 
-		return nil, errInternalErrorReadingBody
+		return nil, fmt.Errorf("got error reading url: %w", err)
 	}
 
 	if readBytes == 0 {
-		return nil, ErrEmptyParamBody
+		return nil, logger.NewError("empty param body", http.StatusBadRequest)
 	}
 
 	result := buffer[:readBytes]

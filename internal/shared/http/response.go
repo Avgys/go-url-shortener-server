@@ -1,50 +1,72 @@
 package http
 
 import (
+	"encoding/json"
 	"errors"
-	"log"
+
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
+	"github.com/rs/zerolog"
 )
 
 const maxBody = 1 << 20
 
 func WriteResponse(w http.ResponseWriter, resp []byte, code int) {
 	w.WriteHeader(code)
+
 	if len(resp) > 0 {
 		w.Write(resp)
 	}
 }
 
-func GetErrorStatusCode(err error) int {
-	if errors.Is(err, service.ErrInvalidURL) ||
-		errors.Is(err, service.ErrEmptyURL) ||
-		errors.Is(err, ErrEmptyParamBody) {
-		return http.StatusBadRequest
-	} else if errors.Is(err, service.ErrCollision) {
-		return http.StatusServiceUnavailable
-	} else if errors.Is(err, service.ErrNotFound) {
-		return http.StatusNotFound
-	} else {
-		return http.StatusInternalServerError
-	}
-}
+func WriteError(w http.ResponseWriter, r *http.Request, err error, tracelog *zerolog.Logger) {
 
-func WriteError(w http.ResponseWriter, r *http.Request, err error, statusCode int) {
+	logRequest(r, err, tracelog)
 
-	log.Printf("error proccessing request, %s", err.Error())
+	var loggerError *logger.HttpError
 
-	errorText := ""
+	errorText := http.StatusText(http.StatusInternalServerError)
+	statusCode := http.StatusInternalServerError
 
-	logger.LogRequest(r, err)
-
-	if statusCode >= 500 {
-		errorText = http.StatusText(statusCode)
-	} else {
-		errorText = err.Error()
+	if errors.As(err, &loggerError) {
+		errorText = loggerError.Error()
+		statusCode = loggerError.StatusCode
 	}
 
 	http.Error(w, errorText, statusCode)
+}
+
+func logRequest(r *http.Request, err error, tracelog *zerolog.Logger) {
+	payload := struct {
+		Method      string      `json:"method"`
+		Path        string      `json:"path"`
+		Query       string      `json:"query"`
+		Headers     http.Header `json:"headers"`
+		ContentType string      `json:"contentType"`
+		RemoteAddr  string      `json:"remoteAddr"`
+		Error       string      `json:"error"`
+	}{
+		Method:      r.Method,
+		Path:        r.URL.Path,
+		Query:       r.URL.RawQuery,
+		Headers:     r.Header,
+		ContentType: r.Header.Get("Content-Type"),
+		RemoteAddr:  r.RemoteAddr,
+		Error:       err.Error(),
+	}
+
+	reqJson, encErr := json.Marshal(payload)
+
+	if encErr == nil {
+		tracelog.Error().
+			Err(err).
+			RawJSON("Request", reqJson).
+			Msg("error proccessing request")
+	} else {
+		tracelog.
+			Error().
+			Err(encErr).
+			Msg("error marshaling request payload")
+	}
 }

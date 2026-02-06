@@ -3,23 +3,19 @@ package service
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	"github.com/rs/zerolog"
 )
 
 const shortURLMaxLength = 8
 const maxStoreRetryCount = 20
-
-var (
-	ErrEmptyURL   = errors.New("empty url")
-	ErrInvalidURL = errors.New("url in wrong format")
-	ErrCollision  = errors.New("could not find free space to store url")
-	ErrNotFound   = errors.New("url not found")
-)
 
 type StringGenerator interface {
 	GetRandomString(n int) string
@@ -36,14 +32,14 @@ func NewShortifier(stringGenerator StringGenerator, store repository.Repository,
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 
-func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
+func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (string, error) {
 
 	if inputURL == "" {
-		return "", ErrEmptyURL
+		return "", logger.NewError("empty url", http.StatusBadRequest)
 	}
 
 	if _, err := shared.GetURL(inputURL, true); err != nil {
-		return "", ErrInvalidURL
+		return "", logger.NewError("url in wrong format", http.StatusBadRequest)
 	}
 
 	trimmedURL := strings.TrimSpace(inputURL)
@@ -60,9 +56,9 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 			// if collision try again
 			if errors.Is(storeErr, repository.ErrCollision) {
 				continue
-			} else {
-				return "", storeErr
 			}
+
+			return "", fmt.Errorf("Error saving short url in store, %w", storeErr)
 		}
 
 		// if no errors, then value stored successfuly
@@ -71,22 +67,24 @@ func (s *Shortifier) ShortifyURL(inputURL string) (string, error) {
 
 	// tries exceed retry count
 	if storeErr != nil && errors.Is(storeErr, repository.ErrCollision) {
-		return "", ErrCollision
+		return "", fmt.Errorf("could not find free space to store url")
 	}
 
 	return url.JoinPath(s.redirectAddr.String(), shortURL)
 }
 
-func (s *Shortifier) ResolveShortURL(inputURL string) (string, error) {
+func (s *Shortifier) ResolveShortURL(inputURL string, traceLogger *zerolog.Logger) (string, error) {
 
 	shortURL := strings.TrimSpace(inputURL)
 
 	url, err := s.store.ResolveShortURL(shortURL)
 
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return url, fmt.Errorf("%s %w, inner error: %w", shortURL, ErrNotFound, err)
-		}
+	if err != nil && errors.Is(err, repository.ErrNotFound) {
+		traceLogger.Info().
+			Str("repository error", err.Error()).
+			Msg("Url not found in repository")
+
+		return url, logger.NewError("url not found", http.StatusNotFound)
 	}
 
 	return url, err

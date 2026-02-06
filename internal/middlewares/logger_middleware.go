@@ -28,10 +28,12 @@ func WithLogging(h http.Handler) http.Handler {
 
 		spanID := rand.Int63()
 		reqCtx := r.Context()
-		log := logger.NewLogger(reqCtx, spanID)
+		log := logger.NewRequestLogger(reqCtx, spanID)
 
 		reqCtx = log.WithContext(reqCtx)
 		r = r.WithContext(reqCtx)
+
+		log = logger.FromContext(r.Context()).With().Str("middleware", "WithLogging").Logger()
 
 		log.Info().
 			Str("Path", r.RequestURI).

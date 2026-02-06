@@ -10,5 +10,4 @@ var (
 type Repository interface {
 	StoreURL(url string, urlHash string) error
 	ResolveShortURL(shortURL string) (string, error)
-	getAll() storage
 }

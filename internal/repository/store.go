@@ -7,20 +7,20 @@ import (
 
 type storage map[string]string
 
-type Store struct {
+type InMemoryStore struct {
 	data storage
 	mux  sync.Mutex
 }
 
-func NewStore(initData storage) *Store {
-	s := &Store{data: make(storage)}
+func NewStore(initData storage) *InMemoryStore {
+	s := &InMemoryStore{data: make(storage)}
 
 	maps.Copy(s.data, initData)
 
 	return s
 }
 
-func (s *Store) StoreURL(url string, shortURL string) error {
+func (s *InMemoryStore) StoreURL(url string, shortURL string) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -33,7 +33,7 @@ func (s *Store) StoreURL(url string, shortURL string) error {
 	return nil
 }
 
-func (s *Store) ResolveShortURL(shortURL string) (string, error) {
+func (s *InMemoryStore) ResolveShortURL(shortURL string) (string, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -47,8 +47,10 @@ func (s *Store) ResolveShortURL(shortURL string) (string, error) {
 	return url, err
 }
 
-func (s *Store) getAll() storage {
+func (s *InMemoryStore) getAll() *storage {
 	result := make(map[string]string)
-	maps.Copy(result, result)
-	return result
+	maps.Copy(result, s.data)
+	store := storage(result)
+
+	return &store
 }
