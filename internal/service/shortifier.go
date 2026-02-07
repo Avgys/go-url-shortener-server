@@ -62,7 +62,7 @@ func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (
 				continue
 			}
 
-			return "", fmt.Errorf("Error saving short url in store, %w", storeErr)
+			return "", fmt.Errorf("error saving short url in store, %w", storeErr)
 		}
 
 		// if no errors, then value stored successfuly
@@ -86,7 +86,7 @@ func (s *Shortifier) ResolveShortURL(inputURL string, traceLogger *zerolog.Logge
 	if err != nil && errors.Is(err, repository.ErrNotFound) {
 		traceLogger.Info().
 			Str("repository error", err.Error()).
-			Msg("Url not found in repository")
+			Msg("url not found in repository")
 
 		return url, logger.NewError("url not found", http.StatusNotFound)
 	}

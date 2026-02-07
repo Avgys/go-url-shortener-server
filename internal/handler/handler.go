@@ -37,39 +37,13 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	url := string(body)
 
-	resultURL, shouldReturn := getShortUrl(h, url, traceLogger, w, r)
+	resultURL, shouldReturn := getShortURL(h, url, traceLogger, w, r)
 	if shouldReturn {
 		return
 	}
 
 	w.Header().Set("Content-type", "text/plain")
 	shared.WriteResponse(w, []byte(resultURL), http.StatusCreated)
-}
-
-func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, bool) {
-	body, err := shared.GetRequestBody(w, r)
-
-	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return nil, true
-	}
-	return body, false
-}
-
-func getShortUrl(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
-	resultURL, err := h.Shortifier.ShortifyURL(url, traceLogger)
-
-	if err != nil {
-		if errors.Is(err, service.ErrCollision) {
-			err = logger.NewError(err.Error(), http.StatusTooManyRequests)
-		}
-
-		shared.WriteError(w, r, err, traceLogger)
-
-		return "", true
-	}
-
-	return resultURL, false
 }
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +64,7 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resultURL, shouldReturn := getShortUrl(h, reqModel.URL, traceLogger, w, r)
+	resultURL, shouldReturn := getShortURL(h, reqModel.URL, traceLogger, w, r)
 	if shouldReturn {
 		return
 	}
@@ -121,4 +95,30 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", url)
 	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
+}
+
+func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, bool) {
+	body, err := shared.GetRequestBody(w, r)
+
+	if err != nil {
+		shared.WriteError(w, r, err, traceLogger)
+		return nil, true
+	}
+	return body, false
+}
+
+func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
+	resultURL, err := h.Shortifier.ShortifyURL(url, traceLogger)
+
+	if err != nil {
+		if errors.Is(err, service.ErrCollision) {
+			err = logger.NewError(err.Error(), http.StatusTooManyRequests)
+		}
+
+		shared.WriteError(w, r, err, traceLogger)
+
+		return "", true
+	}
+
+	return resultURL, false
 }

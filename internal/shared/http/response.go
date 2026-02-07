@@ -24,7 +24,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, tracelog *zer
 
 	logRequest(r, err, tracelog)
 
-	var loggerError *logger.HttpError
+	var loggerError *logger.ShowHTTPError
 
 	errorText := http.StatusText(http.StatusInternalServerError)
 	statusCode := http.StatusInternalServerError
@@ -56,12 +56,12 @@ func logRequest(r *http.Request, err error, tracelog *zerolog.Logger) {
 		Error:       err.Error(),
 	}
 
-	reqJson, encErr := json.Marshal(payload)
+	reqJSON, encErr := json.Marshal(payload)
 
 	if encErr == nil {
 		tracelog.Error().
 			Err(err).
-			RawJSON("Request", reqJson).
+			RawJSON("Request", reqJSON).
 			Msg("error proccessing request")
 	} else {
 		tracelog.

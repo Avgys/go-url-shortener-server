@@ -1,14 +1,14 @@
 package logger
 
-type HttpError struct {
+type ShowHTTPError struct {
 	text       string
 	StatusCode int
 }
 
 func NewError(text string, statusCode int) error {
-	return &HttpError{text, statusCode}
+	return &ShowHTTPError{text, statusCode}
 }
 
-func (e *HttpError) Error() string {
+func (e *ShowHTTPError) Error() string {
 	return e.text
 }
