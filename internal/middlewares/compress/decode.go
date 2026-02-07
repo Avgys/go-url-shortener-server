@@ -2,6 +2,7 @@ package compress
 
 import (
 	"compress/gzip"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -43,14 +44,20 @@ func NewCompressReader(r *http.Request) (*CompressReader, error) {
 
 	decodeType := getDecodeType(contentType, reqDecodeType)
 
+	reader := r.Body
+
 	if decodeType == noResult {
 		return &CompressReader{r.Body, gzipType}, nil
 	}
 
 	if strings.Contains(reqDecodeType, gzipType) {
-		r, err := gzip.NewReader(r.Body)
-		return &CompressReader{r, gzipType}, err
+		var err error
+		reader, err = gzip.NewReader(r.Body)
+
+		if err != nil && !errors.Is(err, io.EOF) {
+			return &CompressReader{r.Body, gzipType}, err
+		}
 	}
 
-	return &CompressReader{r.Body, gzipType}, nil
+	return &CompressReader{reader, gzipType}, nil
 }

@@ -17,6 +17,10 @@ import (
 const shortURLMaxLength = 8
 const maxStoreRetryCount = 20
 
+var (
+	ErrCollision = errors.New("could not find free space to store url")
+)
+
 type StringGenerator interface {
 	GetRandomString(n int) string
 }
@@ -67,7 +71,7 @@ func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (
 
 	// tries exceed retry count
 	if storeErr != nil && errors.Is(storeErr, repository.ErrCollision) {
-		return "", fmt.Errorf("could not find free space to store url")
+		return "", ErrCollision
 	}
 
 	return url.JoinPath(s.redirectAddr.String(), shortURL)

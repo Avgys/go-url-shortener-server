@@ -9,17 +9,24 @@ import (
 
 type compressWriter struct {
 	http.ResponseWriter
-	Writer     io.WriteCloser
-	EncodeType string
+	EncodeWriter io.WriteCloser
+	EncodeType   string
 }
 
 func (w *compressWriter) Write(b []byte) (int, error) {
-	defer w.Writer.Close()
-	return w.Writer.Write(b)
+	if w.EncodeWriter != nil {
+		return w.EncodeWriter.Write(b)
+	}
+
+	return w.ResponseWriter.Write(b)
 }
 
 func (w *compressWriter) Close() error {
-	return w.Writer.Close()
+	if w.EncodeWriter != nil {
+		return w.EncodeWriter.Close()
+	}
+
+	return nil
 }
 
 func getEncodeType(acceptEncoding string) string {
@@ -33,7 +40,7 @@ func getEncodeType(acceptEncoding string) string {
 	return noResult
 }
 
-func NewCompressWriter(w http.ResponseWriter, r *http.Request) (*compressWriter, io.Closer, error) {
+func NewCompressWriter(w http.ResponseWriter, r *http.Request) (*compressWriter, error) {
 
 	var encodeWriter *compressWriter = nil
 
@@ -41,21 +48,21 @@ func NewCompressWriter(w http.ResponseWriter, r *http.Request) (*compressWriter,
 	encodeType := getEncodeType(reqEncodeType)
 
 	if encodeType != noResult {
-		return &compressWriter{ResponseWriter: w}, nil, nil
+		return &compressWriter{ResponseWriter: w}, nil
 	}
 
 	if encodeType == gzipType {
 		gzipWriter, err := gzip.NewWriterLevel(w, gzip.DefaultCompression)
 
 		if err != nil {
-			return &compressWriter{ResponseWriter: w}, nil, err
+			return &compressWriter{ResponseWriter: w}, err
 		}
 
 		encodeWriter = &compressWriter{w, gzipWriter, gzipType}
 		encodeWriter.Header().Set(contentEncodingHeader, gzipType)
 
-		return encodeWriter, encodeWriter, nil
+		return encodeWriter, nil
 	}
 
-	return &compressWriter{ResponseWriter: w}, nil, nil
+	return &compressWriter{ResponseWriter: w}, nil
 }

@@ -2,10 +2,12 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -28,18 +30,15 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	traceLogger := logger.Endpoint(r.Context(), "ShortifyURL")
 
-	body, err := shared.GetRequestBody(w, r)
-
-	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
+	body, shouldReturn := getBody(w, r, traceLogger)
+	if shouldReturn {
 		return
 	}
 
 	url := string(body)
-	resultURL := ""
 
-	if resultURL, err = h.Shortifier.ShortifyURL(url, traceLogger); err != nil {
-		shared.WriteError(w, r, err, traceLogger)
+	resultURL, shouldReturn := getShortUrl(h, url, traceLogger, w, r)
+	if shouldReturn {
 		return
 	}
 
@@ -47,30 +46,52 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	shared.WriteResponse(w, []byte(resultURL), http.StatusCreated)
 }
 
-func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
-
-	traceLogger := logger.Endpoint(r.Context(), "ShortenURL")
-
+func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, bool) {
 	body, err := shared.GetRequestBody(w, r)
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
+		return nil, true
+	}
+	return body, false
+}
+
+func getShortUrl(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
+	resultURL, err := h.Shortifier.ShortifyURL(url, traceLogger)
+
+	if err != nil {
+		if errors.Is(err, service.ErrCollision) {
+			err = logger.NewError(err.Error(), http.StatusTooManyRequests)
+		}
+
+		shared.WriteError(w, r, err, traceLogger)
+
+		return "", true
+	}
+
+	return resultURL, false
+}
+
+func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
+
+	traceLogger := logger.Endpoint(r.Context(), "ShortenURL")
+
+	body, shouldReturn := getBody(w, r, traceLogger)
+	if shouldReturn {
 		return
 	}
 
 	var reqModel model.ShortenReq
 
-	err = json.Unmarshal(body, &reqModel)
+	err := json.Unmarshal(body, &reqModel)
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 
-	resultURL, err := h.Shortifier.ShortifyURL(reqModel.URL, traceLogger)
-
-	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
+	resultURL, shouldReturn := getShortUrl(h, reqModel.URL, traceLogger, w, r)
+	if shouldReturn {
 		return
 	}
 

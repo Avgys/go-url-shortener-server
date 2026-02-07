@@ -53,17 +53,16 @@ func Test_handlers_Redirect(t *testing.T) {
 				Headers:    map[string]string{"Location": "full-url"},
 			},
 		},
-		// {
-		// 	name: "Not found url",
-		// 	url:  "/" + testcommon.ShortHash,
-		// 	defaultStructure: &innerStructure{
-		// 		strGen: &testcommon.MockStrGen{},
-		// 	},
-		// 	want: testcommon.ResponseWant{
-		// 		StatusCode: http.StatusNotFound,
-		// 		Body:       fmt.Sprintf("%s %s, inner error: %s", testcommon.TestStr, service.ErrNotFound, repository.ErrNotFound),
-		// 	},
-		// },
+		{
+			name: "Not found url",
+			url:  "/" + testcommon.ShortHash,
+			defaultStructure: &innerStructure{
+				strGen: &testcommon.MockStrGen{},
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusNotFound,
+			},
+		},
 		{
 			name: "No url param",
 			url:  "",
@@ -116,14 +115,13 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				Body:       awaitedStr,
 			},
 		},
-		// {
-		// 	name: "url wrong format",
-		// 	url:  "/gdfgdfhs",
-		// 	want: testcommon.ResponseWant{
-		// 		StatusCode: http.StatusBadRequest,
-		// 		Body:       service.ErrInvalidURL.Error(),
-		// 	},
-		// },
+		{
+			name: "url wrong format",
+			url:  "/gdfgdfhs",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
 		{
 			name: "url exists",
 			url:  "http://long-url.com",
@@ -131,18 +129,17 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusServiceUnavailable,
-				Body:       http.StatusText(http.StatusServiceUnavailable),
+				StatusCode: http.StatusTooManyRequests,
+				Body:       service.ErrCollision.Error(),
 			},
 		},
-		// {
-		// 	name: "Empty body",
-		// 	url:  "",
-		// 	want: testcommon.ResponseWant{
-		// 		StatusCode: http.StatusBadRequest,
-		// 		Body:       httpShared.ErrEmptyParamBody.Error(),
-		// 	},
-		// },
+		{
+			name: "Empty body",
+			url:  "",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
 		{
 			name: "Wrong content-type",
 			url:  "http://long-url.com",
@@ -258,14 +255,13 @@ func Test_handlers_ShortenURL(t *testing.T) {
 				Body:       fmt.Sprintf(`{"result": "%s"}`, awaitedStr),
 			},
 		},
-		// {
-		// 	name: "url wrong format",
-		// 	url:  "/gdfgdfhs",
-		// 	want: testcommon.ResponseWant{
-		// 		StatusCode: http.StatusBadRequest,
-		// 		Body:       service.ErrInvalidURL.Error(),
-		// 	},
-		// },
+		{
+			name: "url wrong format",
+			url:  "/gdfgdfhs",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
 		{
 			name: "url exists",
 			url:  "http://long-url.com",
@@ -273,18 +269,17 @@ func Test_handlers_ShortenURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusServiceUnavailable,
-				Body:       http.StatusText(http.StatusServiceUnavailable),
+				StatusCode: http.StatusTooManyRequests,
+				Body:       service.ErrCollision.Error(),
 			},
 		},
-		// {
-		// 	name: "Empty body",
-		// 	url:  "",
-		// 	want: testcommon.ResponseWant{
-		// 		StatusCode: http.StatusBadRequest,
-		// 		Body:       service.ErrEmptyURL.Error(),
-		// 	},
-		// },
+		{
+			name: "Empty body",
+			url:  "",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
 		{
 			name: "Wrong content-type",
 			url:  "http://long-url.com",

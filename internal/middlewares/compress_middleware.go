@@ -23,16 +23,14 @@ func WithCompression(h http.Handler) http.Handler {
 
 		r.Body = decodeReader
 
-		encodeWriter, closer, err := compress.NewCompressWriter(w, r)
+		encodeWriter, err := compress.NewCompressWriter(w, r)
 
 		if err != nil {
 			httpShared.WriteError(w, r, err, traceLogger)
 			return
 		}
 
-		if closer != nil {
-			defer closer.Close()
-		}
+		defer encodeWriter.Close()
 
 		w = encodeWriter
 

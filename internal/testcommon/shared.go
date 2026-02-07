@@ -25,10 +25,12 @@ func CheckResponseFields(t *testing.T, res *http.Response, want ResponseWant) {
 
 	contentType := res.Header.Get("Content-Type")
 
-	if contentType == "application/json" {
-		assert.JSONEq(t, want.Body, string(resBody))
-	} else {
-		assert.Equal(t, want.Body, strings.TrimRight(string(resBody), "\n"))
+	if want.Body != "" {
+		if contentType == "application/json" {
+			assert.JSONEq(t, want.Body, string(resBody))
+		} else {
+			assert.Equal(t, want.Body, strings.TrimRight(string(resBody), "\n"))
+		}
 	}
 
 	if want.Headers != nil {
