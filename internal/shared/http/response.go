@@ -6,7 +6,6 @@ import (
 
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/rs/zerolog"
 )
 
@@ -24,7 +23,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, tracelog *zer
 
 	logRequest(r, err, tracelog)
 
-	var loggerError *logger.ShowHTTPError
+	var loggerError *ShowHTTPError
 
 	errorText := http.StatusText(http.StatusInternalServerError)
 	statusCode := http.StatusInternalServerError

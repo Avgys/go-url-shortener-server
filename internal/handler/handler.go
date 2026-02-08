@@ -112,7 +112,7 @@ func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.Re
 
 	if err != nil {
 		if errors.Is(err, service.ErrCollision) {
-			err = logger.NewError(err.Error(), http.StatusTooManyRequests)
+			err = shared.NewError(err.Error(), http.StatusTooManyRequests)
 		}
 
 		shared.WriteError(w, r, err, traceLogger)

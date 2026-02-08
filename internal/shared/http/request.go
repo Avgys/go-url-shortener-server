@@ -23,7 +23,7 @@ func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	}
 
 	if readBytes == 0 {
-		return nil, logger.NewError("empty param body", http.StatusBadRequest)
+		return nil, NewError("empty param body", http.StatusBadRequest)
 	}
 
 	result := buffer[:readBytes]

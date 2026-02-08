@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
 )
 
@@ -39,11 +39,11 @@ func NewShortifier(stringGenerator StringGenerator, store repository.Repository,
 func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (string, error) {
 
 	if inputURL == "" {
-		return "", logger.NewError("empty url", http.StatusBadRequest)
+		return "", httpShared.NewError("empty url", http.StatusBadRequest)
 	}
 
 	if _, err := shared.GetURL(inputURL, true); err != nil {
-		return "", logger.NewError("url in wrong format", http.StatusBadRequest)
+		return "", httpShared.NewError("url in wrong format", http.StatusBadRequest)
 	}
 
 	trimmedURL := strings.TrimSpace(inputURL)
@@ -88,7 +88,7 @@ func (s *Shortifier) ResolveShortURL(inputURL string, traceLogger *zerolog.Logge
 			Str("repository error", err.Error()).
 			Msg("url not found in repository")
 
-		return url, logger.NewError("url not found", http.StatusNotFound)
+		return url, httpShared.NewError("url not found", http.StatusNotFound)
 	}
 
 	return url, err
