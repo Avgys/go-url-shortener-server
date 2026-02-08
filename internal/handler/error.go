@@ -1,4 +1,4 @@
-package logger
+package handler
 
 type ShowHTTPError struct {
 	text       string
