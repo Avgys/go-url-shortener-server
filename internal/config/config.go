@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"reflect"
 
+	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/caarlos0/env/v11"
 	"github.com/rs/zerolog"
 )
 
 type Config struct {
-	AppURL         NetAddress `env:"SERVER_ADDRESS"`
-	RedirectDomain NetAddress `env:"BASE_URL"`
-	FileStorage    Filepath   `env:"FILE_STORAGE_PATH"`
+	AppURL             flagvalues.NetAddress `env:"SERVER_ADDRESS"`
+	RedirectDomain     flagvalues.NetAddress `env:"BASE_URL"`
+	FileStorage        string                `env:"FILE_STORAGE_PATH"`
+	DBConnectionString string                `env:"DATABASE_DSN"`
 }
 
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
@@ -33,7 +35,7 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 	traceLogger.Info().
 		Str("ServerAddr", cfg.AppURL.String()).
 		Str("RedirectAddr", cfg.RedirectDomain.String()).
-		Str("FileStoragePath", cfg.FileStorage.String())
+		Str("FileStoragePath", cfg.FileStorage)
 
 	return cfg, nil
 }
@@ -41,14 +43,10 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 func parseEnv(cfg *Config) error {
 	err := env.ParseWithOptions(cfg, env.Options{
 		FuncMap: map[reflect.Type]env.ParserFunc{
-			reflect.TypeFor[NetAddress](): func(v string) (interface{}, error) {
-				netAddress := NetAddress{}
+			reflect.TypeFor[flagvalues.NetAddress](): func(v string) (interface{}, error) {
+				netAddress := flagvalues.NetAddress{}
 				err := netAddress.Set(v)
 				return netAddress, err
-			},
-			reflect.TypeFor[Filepath](): func(v string) (interface{}, error) {
-				filepath := Filepath(v)
-				return filepath, nil
 			},
 		}})
 
@@ -60,7 +58,8 @@ func parseFlags(cfg *Config, args []string) error {
 
 	fs.Var(&cfg.AppURL, "a", "address of HTTP server")
 	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
-	fs.Var(&cfg.FileStorage, "f", "file storage name")
+	fs.StringVar(&cfg.FileStorage, "f", "../storage.json", "file storage name")
+	fs.StringVar(&cfg.DBConnectionString, "d", "", "db connection string url")
 
 	return fs.Parse(args)
 }
@@ -68,9 +67,10 @@ func parseFlags(cfg *Config, args []string) error {
 func getDefaultConfig() *Config {
 	cfg := Config{}
 
-	cfg.AppURL = NetAddress{Host: "localhost:8080", SchemeRequired: false}
-	cfg.RedirectDomain = NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
+	cfg.AppURL = flagvalues.NetAddress{Host: "localhost:8080", SchemeRequired: false}
+	cfg.RedirectDomain = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
 	cfg.FileStorage = "../storage.json"
+	cfg.DBConnectionString = ""
 
 	return &cfg
 }

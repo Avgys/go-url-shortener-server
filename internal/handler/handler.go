@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/go-chi/chi/v5"
@@ -15,15 +17,16 @@ import (
 
 type Handlers struct {
 	Shortifier Shortifier
+	Store      repository.Repository
 }
 
 type Shortifier interface {
-	ResolveShortURL(model string, logerr *zerolog.Logger) (string, error)
-	ShortifyURL(model string, logger *zerolog.Logger) (string, error)
+	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
+	ShortifyURL(ctx context.Context, model string, logger *zerolog.Logger) (string, error)
 }
 
-func NewHandlers(shortifier Shortifier) *Handlers {
-	return &Handlers{Shortifier: shortifier}
+func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
+	return &Handlers{Shortifier: shortifier, Store: store}
 }
 
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
@@ -84,11 +87,13 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	var url string
 	var err error
 
-	traceLogger := logger.Endpoint(r.Context(), "Redirect")
+	ctx := r.Context()
+
+	traceLogger := logger.Endpoint(ctx, "Redirect")
 
 	url = chi.URLParam(r, "url")
 
-	if url, err = h.Shortifier.ResolveShortURL(url, traceLogger); err != nil {
+	if url, err = h.Shortifier.ResolveShortURL(ctx, url, traceLogger); err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
@@ -108,7 +113,7 @@ func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger
 }
 
 func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
-	resultURL, err := h.Shortifier.ShortifyURL(url, traceLogger)
+	resultURL, err := h.Shortifier.ShortifyURL(r.Context(), url, traceLogger)
 
 	if err != nil {
 		if errors.Is(err, service.ErrCollision) {

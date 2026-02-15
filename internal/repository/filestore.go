@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,22 +96,22 @@ func (fs *FileStore) Close() error {
 	return fs.file.Close()
 }
 
-func (fs *FileStore) StoreURL(url string, shortURL string) error {
+func (fs *FileStore) StoreURL(ctx context.Context, url string, shortURL string) error {
 	if fs.isClosed {
 		return ErrFileClosed
 	}
 
 	fs.append(&record{FullURL: url, ShortURL: shortURL})
 
-	return fs.store.StoreURL(url, shortURL)
+	return fs.store.StoreURL(ctx, url, shortURL)
 }
 
-func (fs *FileStore) ResolveShortURL(shortURL string) (string, error) {
+func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
 	if fs.isClosed {
 		return "", ErrFileClosed
 	}
 
-	return fs.store.ResolveShortURL(shortURL)
+	return fs.store.ResolveShortURL(ctx, shortURL)
 }
 
 func (fs *FileStore) append(record *record) {

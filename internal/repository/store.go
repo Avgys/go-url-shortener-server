@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"maps"
 	"sync"
 )
@@ -20,7 +21,7 @@ func NewStore(initData storage) *InMemoryStore {
 	return s
 }
 
-func (s *InMemoryStore) StoreURL(url string, shortURL string) error {
+func (s *InMemoryStore) StoreURL(ctx context.Context, url string, shortURL string) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -33,7 +34,7 @@ func (s *InMemoryStore) StoreURL(url string, shortURL string) error {
 	return nil
 }
 
-func (s *InMemoryStore) ResolveShortURL(shortURL string) (string, error) {
+func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -45,6 +46,10 @@ func (s *InMemoryStore) ResolveShortURL(shortURL string) (string, error) {
 	}
 
 	return url, err
+}
+
+func (s *InMemoryStore) TestConnection(ctx context.Context) error {
+	return nil
 }
 
 func (s *InMemoryStore) getAll() *storage {

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
+	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
@@ -23,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testHost config.NetAddress = config.NetAddress{Host: "localhost:8080", Scheme: "http"}
+var testHost flagvalues.NetAddress = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http"}
 
 type innerStructure struct {
 	store      repository.Repository

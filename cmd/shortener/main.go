@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
+	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -49,7 +51,7 @@ func run(traceLogger *zerolog.Logger) error {
 }
 
 func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error) {
-	store, err := repository.NewFileStore(string(cfg.FileStorage))
+	store, err := repository.NewDBStore(context.Background(), &db.Config{ConnectionString: cfg.DBConnectionString})
 
 	if err != nil {
 		return nil, err
@@ -59,6 +61,6 @@ func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, e
 
 	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
 
-	h := handler.NewHandlers(shortifier)
+	h := handler.NewHandlers(shortifier, store)
 	return router.NewRouter(h), nil
 }

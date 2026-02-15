@@ -1,13 +1,14 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
+	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
@@ -29,14 +30,14 @@ type Shortifier struct {
 	domain          string
 	store           repository.Repository
 	stringGenerator StringGenerator
-	redirectAddr    *config.NetAddress
+	redirectAddr    *flagvalues.NetAddress
 }
 
-func NewShortifier(stringGenerator StringGenerator, store repository.Repository, redirectAddr *config.NetAddress) *Shortifier {
+func NewShortifier(stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) *Shortifier {
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 
-func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (string, error) {
+func (s *Shortifier) ShortifyURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (string, error) {
 
 	if inputURL == "" {
 		return "", httpShared.NewError("empty url", http.StatusBadRequest)
@@ -54,7 +55,7 @@ func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (
 
 	for range maxStoreRetryCount {
 		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
-		storeErr = s.store.StoreURL(trimmedURL, shortURL)
+		storeErr = s.store.StoreURL(ctx, trimmedURL, shortURL)
 
 		if storeErr != nil {
 			// if collision try again
@@ -77,11 +78,11 @@ func (s *Shortifier) ShortifyURL(inputURL string, traceLogger *zerolog.Logger) (
 	return url.JoinPath(s.redirectAddr.String(), shortURL)
 }
 
-func (s *Shortifier) ResolveShortURL(inputURL string, traceLogger *zerolog.Logger) (string, error) {
+func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (string, error) {
 
 	shortURL := strings.TrimSpace(inputURL)
 
-	url, err := s.store.ResolveShortURL(shortURL)
+	url, err := s.store.ResolveShortURL(ctx, shortURL)
 
 	if err != nil && errors.Is(err, repository.ErrNotFound) {
 		traceLogger.Info().

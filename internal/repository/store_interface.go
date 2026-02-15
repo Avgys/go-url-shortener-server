@@ -1,6 +1,9 @@
 package repository
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 var (
 	ErrCollision = errors.New("slot in dictionary taken")
@@ -8,6 +11,7 @@ var (
 )
 
 type Repository interface {
-	StoreURL(url string, urlHash string) error
-	ResolveShortURL(shortURL string) (string, error)
+	StoreURL(ctx context.Context, url string, urlHash string) error
+	ResolveShortURL(ctx context.Context, shortURL string) (string, error)
+	TestConnection(ctx context.Context) error
 }

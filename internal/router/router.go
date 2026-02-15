@@ -20,6 +20,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 	r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
 	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten", h.ShortenURL)
 	r.Get("/{url}", h.Redirect)
+	r.Get("/ping", h.Ping)
 
 	return r
 }
