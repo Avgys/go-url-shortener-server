@@ -46,7 +46,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			name: "Get redirect",
 			url:  "/short-url",
 			defaultStructure: &innerStructure{
-				store:  repository.NewStore(map[string]string{"short-url": "full-url"}),
+				store:  repository.NewInMemoryStore(map[string]string{"short-url": "full-url"}),
 				config: &config.Config{AppURL: testHost},
 			},
 			want: testcommon.ResponseWant{
@@ -128,7 +128,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
 				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
+				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTooManyRequests,
 				Body:       service.ErrCollision.Error(),
@@ -268,7 +268,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
 				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
+				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTooManyRequests,
 				Body:       service.ErrCollision.Error(),
@@ -329,7 +329,7 @@ func getRouter(testStructure *innerStructure) *chi.Mux {
 	}
 
 	if testStructure != nil && testStructure.store == nil {
-		testStructure.store = repository.NewStore(nil)
+		testStructure.store = repository.NewInMemoryStore(nil)
 	}
 
 	if testStructure != nil && testStructure.strGen == nil {

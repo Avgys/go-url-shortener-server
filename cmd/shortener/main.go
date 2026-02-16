@@ -9,7 +9,6 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/Avgys/go-url-shortener-server/internal/router"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -25,7 +24,8 @@ func main() {
 
 	if err := run(&logger); err != nil {
 		logger.Fatal().
-			Err(err)
+			Err(err).
+			Send()
 	}
 }
 
@@ -51,9 +51,10 @@ func run(traceLogger *zerolog.Logger) error {
 }
 
 func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error) {
-	store, err := repository.NewDBStore(context.Background(), &db.Config{ConnectionString: cfg.DBConnectionString})
+	store, err := repository.NewRepository(context.Background(), cfg)
 
 	if err != nil {
+		traceLogger.Err(err).Msg("error initializing repository")
 		return nil, err
 	}
 

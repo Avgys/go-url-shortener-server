@@ -54,7 +54,11 @@ func NewCompressReader(r *http.Request) (*CompressReader, error) {
 		var err error
 		reader, err = gzip.NewReader(r.Body)
 
-		if err != nil && !errors.Is(err, io.EOF) {
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return &CompressReader{r.Body, contentType}, nil
+			}
+
 			return &CompressReader{r.Body, gzipType}, err
 		}
 	}

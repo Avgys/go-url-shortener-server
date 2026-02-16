@@ -13,7 +13,7 @@ type InMemoryStore struct {
 	mux  sync.Mutex
 }
 
-func NewStore(initData storage) *InMemoryStore {
+func NewInMemoryStore(initData storage) *InMemoryStore {
 	s := &InMemoryStore{data: make(storage)}
 
 	maps.Copy(s.data, initData)

@@ -13,7 +13,7 @@ import (
 type Config struct {
 	AppURL             flagvalues.NetAddress `env:"SERVER_ADDRESS"`
 	RedirectDomain     flagvalues.NetAddress `env:"BASE_URL"`
-	FileStorage        string                `env:"FILE_STORAGE_PATH"`
+	FileStoragePath    string                `env:"FILE_STORAGE_PATH"`
 	DBConnectionString string                `env:"DATABASE_DSN"`
 }
 
@@ -35,7 +35,9 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 	traceLogger.Info().
 		Str("ServerAddr", cfg.AppURL.String()).
 		Str("RedirectAddr", cfg.RedirectDomain.String()).
-		Str("FileStoragePath", cfg.FileStorage)
+		Str("FileStoragePath", cfg.FileStoragePath).
+		Str("DBConnectionString", cfg.DBConnectionString).
+		Send()
 
 	return cfg, nil
 }
@@ -58,7 +60,7 @@ func parseFlags(cfg *Config, args []string) error {
 
 	fs.Var(&cfg.AppURL, "a", "address of HTTP server")
 	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
-	fs.StringVar(&cfg.FileStorage, "f", "../storage.json", "file storage name")
+	fs.StringVar(&cfg.FileStoragePath, "f", "", "file storage name")
 	fs.StringVar(&cfg.DBConnectionString, "d", "", "db connection string url")
 
 	return fs.Parse(args)
@@ -69,7 +71,7 @@ func getDefaultConfig() *Config {
 
 	cfg.AppURL = flagvalues.NetAddress{Host: "localhost:8080", SchemeRequired: false}
 	cfg.RedirectDomain = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
-	cfg.FileStorage = "../storage.json"
+	cfg.FileStoragePath = ""
 	cfg.DBConnectionString = ""
 
 	return &cfg

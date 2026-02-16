@@ -69,7 +69,7 @@ func NewFileStore(filename string) (*FileStore, error) {
 	appender := json.NewEncoder(file)
 	appender.SetEscapeHTML(false)
 
-	return &FileStore{file: file, store: NewStore(records), appender: appender}, nil
+	return &FileStore{file: file, store: NewInMemoryStore(records), appender: appender}, nil
 }
 
 func clearFile(file *os.File) {
@@ -112,6 +112,10 @@ func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (stri
 	}
 
 	return fs.store.ResolveShortURL(ctx, shortURL)
+}
+
+func (fs *FileStore) TestConnection(ctx context.Context) error {
+	return nil
 }
 
 func (fs *FileStore) append(record *record) {

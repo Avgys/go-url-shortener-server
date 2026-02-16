@@ -12,7 +12,7 @@ type Config struct {
 }
 
 type DB struct {
-	pool *pgxpool.Pool
+	Pool *pgxpool.Pool
 }
 
 func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
@@ -23,7 +23,7 @@ func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize a connection pool: %w", err)
 	}
 
-	return &DB{pool: pool}, nil
+	return &DB{Pool: pool}, nil
 }
 
 func initPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
@@ -47,10 +47,10 @@ func initPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
 }
 
 func (db *DB) Ping(ctx context.Context) error {
-	return db.pool.Ping(ctx)
+	return db.Pool.Ping(ctx)
 }
 
 func (db *DB) Close() error {
-	db.pool.Close()
+	db.Pool.Close()
 	return nil
 }

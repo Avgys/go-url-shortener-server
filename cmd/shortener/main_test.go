@@ -49,7 +49,7 @@ func TestRouter(t *testing.T) {
 func getTestRouter() *httptest.Server {
 
 	cfg, _ := config.GetConfig([]string{}, &zerolog.Logger{})
-	store := repository.NewStore(nil)
+	store := repository.NewInMemoryStore(nil)
 	strGen := &testcommon.MockStrGen{}
 
 	shortifier := service.NewShortifier(strGen, store, &cfg.RedirectDomain)
