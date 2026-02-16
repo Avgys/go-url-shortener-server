@@ -28,9 +28,9 @@ func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 
 	pool, err := initPool(ctx, cfg)
 
-	// if err := runMigrations(pool); err != nil {
-	// 	return nil, err
-	// }
+	if err := runMigrations(pool); err != nil {
+		return nil, err
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize a connection pool: %w", err)
