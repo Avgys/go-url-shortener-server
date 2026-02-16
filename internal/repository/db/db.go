@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"os"
 	"path/filepath"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -64,15 +62,15 @@ func initPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
 
 func runMigrations(cfg *Config) error {
 
-	root, err := findGoModDir()
+	rel := filepath.Join("sql")
+	abs, err := filepath.Abs(rel)
 	if err != nil {
 		return err
 	}
 
-	path, _ := url.JoinPath("file://", filepath.ToSlash(root), "migrations", "sql")
-	path, _ = url.PathUnescape(path)
+	sourceURL := "file://" + filepath.ToSlash(abs) // usually fine
 
-	m, err := migrate.New(path,
+	m, err := migrate.New(sourceURL,
 		cfg.ConnectionString,
 	)
 
@@ -93,21 +91,4 @@ func (db *DB) Ping(ctx context.Context) error {
 
 func (db *DB) Close() {
 	db.Pool.Close()
-}
-
-func findGoModDir() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("go.mod not found")
-		}
-		dir = parent
-	}
 }
