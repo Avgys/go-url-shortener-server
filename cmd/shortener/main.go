@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
@@ -18,35 +22,72 @@ import (
 
 func main() {
 
-	logger := logger.NewLogger().
-		With().
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGKILL)
+	defer stop()
+
+	log, close := logger.NewLogger()
+
+	*log = log.With().
 		Str("component", "initialize").
 		Logger()
 
-	if err := run(&logger); err != nil {
-		logger.Fatal().
-			Err(err).
-			Send()
-	}
-}
+	defer close()
 
-func run(traceLogger *zerolog.Logger) error {
-	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
+	srv, err := run(log)
 
 	if err != nil {
-		return err
+
+		log.Error().
+			Err(err).
+			Send()
+
+		os.Exit(1)
 	}
 
-	r, err, closers := prepareRouter(cfg, traceLogger)
+	errCh := make(chan error, 1)
 
-	defer func() {
-		for _, closer := range closers {
-			closer.Close()
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
 		}
 	}()
 
+	select {
+	case <-ctx.Done():
+		// graceful shutdown
+		shutCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		_ = srv.Shutdown(shutCtx)
+		// close db, etc.
+		os.Exit(0)
+		return // allow normal exit code 0
+	case err := <-errCh:
+		if err != nil {
+			// startup/runtime error -> exit non-zero
+			log.Println("server error:", err)
+			os.Exit(1)
+		}
+	}
+}
+
+func run(traceLogger *zerolog.Logger) (*http.Server, error) {
+	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
+
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	r, err, _ := prepareRouter(cfg, traceLogger)
+
+	// defer func() {
+	// 	for _, closer := range closers {
+	// 		closer.Close()
+	// 	}
+	// }()
+
+	if err != nil {
+		return nil, err
 	}
 
 	srv := &http.Server{
@@ -54,7 +95,7 @@ func run(traceLogger *zerolog.Logger) error {
 		Handler: r,
 	}
 
-	return srv.ListenAndServe()
+	return srv, nil
 }
 
 func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error, []io.Closer) {

@@ -1,8 +1,0 @@
-CREATE TABLE IF NOT EXISTS urls (
-    id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    short_url VARCHAR(255) NOT NULL,
-    long_url VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_long_url ON urls(short_url); 
