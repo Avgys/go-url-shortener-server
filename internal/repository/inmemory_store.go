@@ -52,6 +52,10 @@ func (s *InMemoryStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
+func (s *InMemoryStore) Close() error {
+	return nil
+}
+
 func (s *InMemoryStore) getAll() *storage {
 	result := make(map[string]string)
 	maps.Copy(result, s.data)

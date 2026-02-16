@@ -11,6 +11,7 @@ type Repository interface {
 	StoreURL(ctx context.Context, url string, urlHash string) error
 	ResolveShortURL(ctx context.Context, shortURL string) (string, error)
 	TestConnection(ctx context.Context) error
+	Close() error
 }
 
 func NewRepository(ctx context.Context, cfg *config.Config) (Repository, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"os"
 
@@ -36,7 +37,13 @@ func run(traceLogger *zerolog.Logger) error {
 		return err
 	}
 
-	r, err := prepareRouter(cfg, traceLogger)
+	r, err, closers := prepareRouter(cfg, traceLogger)
+
+	defer func() {
+		for _, closer := range closers {
+			closer.Close()
+		}
+	}()
 
 	if err != nil {
 		return err
@@ -50,18 +57,23 @@ func run(traceLogger *zerolog.Logger) error {
 	return srv.ListenAndServe()
 }
 
-func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error) {
+func prepareRouter(cfg *config.Config, traceLogger *zerolog.Logger) (*chi.Mux, error, []io.Closer) {
+
+	closers := make([]io.Closer, 0)
+
 	store, err := repository.NewRepository(context.Background(), cfg)
 
 	if err != nil {
 		traceLogger.Err(err).Msg("error initializing repository")
-		return nil, err
+		return nil, err, closers
 	}
+
+	closers = append(closers, store)
 
 	generator := service.NewStringGenerator()
 
 	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
 
 	h := handler.NewHandlers(shortifier, store)
-	return router.NewRouter(h), nil
+	return router.NewRouter(h), nil, closers
 }

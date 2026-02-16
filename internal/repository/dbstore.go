@@ -7,11 +7,7 @@ import (
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
-	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5"
-
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 type DBStore struct {
@@ -19,11 +15,6 @@ type DBStore struct {
 }
 
 func NewDBStore(ctx context.Context, dbConfig *db.Config) (*DBStore, error) {
-
-	if err := runMigrations(dbConfig); err != nil {
-		return nil, err
-	}
-
 	dbConnection, err := db.NewDB(ctx, dbConfig)
 
 	if err != nil {
@@ -31,23 +22,6 @@ func NewDBStore(ctx context.Context, dbConfig *db.Config) (*DBStore, error) {
 	}
 
 	return &DBStore{db: dbConnection}, nil
-}
-
-func runMigrations(cfg *db.Config) error {
-	m, err := migrate.New(
-		"file://../../migrations/",
-		cfg.ConnectionString,
-	)
-
-	if err != nil {
-		return fmt.Errorf("couldn't open migrations, %w", err)
-	}
-
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("couldn't run migrations, %w", err)
-	}
-
-	return nil
 }
 
 func (s *DBStore) StoreURL(ctx context.Context, fullURL string, shortURL string) error {
@@ -90,4 +64,9 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 
 func (s *DBStore) TestConnection(ctx context.Context) error {
 	return s.db.Ping(ctx)
+}
+
+func (s *DBStore) Close() error {
+	s.db.Close()
+	return nil
 }

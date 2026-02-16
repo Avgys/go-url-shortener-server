@@ -79,7 +79,7 @@ func clearFile(file *os.File) {
 
 func (fs *FileStore) Close() error {
 	if fs.isClosed {
-		return nil
+		return errors.New("filestore closed")
 	}
 
 	clearFile(fs.file)
