@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
@@ -28,7 +29,7 @@ func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 
 	pool, err := initPool(ctx, cfg)
 
-	if err := runMigrations(pool); err != nil {
+	if err := runMigrations(ctx, cfg); err != nil {
 		return nil, err
 	}
 
@@ -59,35 +60,31 @@ func initPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func runMigrations(pool *pgxpool.Pool) error {
+func runMigrations(ctx context.Context, cfg *Config) error {
 
-	// sourceURL := "file://migrations/sql" // usually fine
+	m, err := migrate.New("file://migrations/sql",
+		cfg.ConnectionString,
+	)
 
-	// m, err := migrate.New(sourceURL,
-	// 	cfg.ConnectionString,
-	// )
+	// sql := `CREATE TABLE IF NOT EXISTS urls (
+	// 		id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+	// 		short_url VARCHAR(255) NOT NULL,
+	// 		long_url VARCHAR(255) NOT NULL,
+	// 		created_at TIMESTAMP NOT NULL DEFAULT now()
+	// 	);
 
-	sql := `CREATE TABLE IF NOT EXISTS urls (
-			id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-			short_url VARCHAR(255) NOT NULL,
-			long_url VARCHAR(255) NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT now()
-		);
+	// 	CREATE INDEX IF NOT EXISTS idx_long_url ON urls(short_url); `
 
-		CREATE INDEX IF NOT EXISTS idx_long_url ON urls(short_url); `
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	_, err := pool.Exec(ctx, sql)
+	// _, err := pool.Exec(ctx, sql)
 
 	if err != nil {
-		return fmt.Errorf("couldn't open migrations, %w", err)
+		dir, _ := os.Getwd()
+		return fmt.Errorf("couldn't open migrations, %w, current dir %s", err, dir)
 	}
 
-	// if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-	// 	return fmt.Errorf("couldn't run migrations, %w", err)
-	// }
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("couldn't run migrations, %w", err)
+	}
 
 	return nil
 }

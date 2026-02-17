@@ -47,7 +47,7 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 
 	row := s.db.Pool.QueryRow(ctx, queryTmp, shortURL)
 
-	var dbVal model.DbURL
+	var dbVal model.DBURL
 
 	err := row.Scan(&dbVal.Id, &dbVal.ShortURL, &dbVal.FullURL, &dbVal.UpdateAt)
 

@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-type DbURL struct {
+type DBURL struct {
 	Id       int
 	FullURL  string
 	ShortURL string
