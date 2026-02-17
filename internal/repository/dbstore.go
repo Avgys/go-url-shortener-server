@@ -49,7 +49,7 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 
 	var dbVal model.DBURL
 
-	err := row.Scan(&dbVal.Id, &dbVal.ShortURL, &dbVal.FullURL, &dbVal.UpdateAt)
+	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.FullURL, &dbVal.UpdateAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
