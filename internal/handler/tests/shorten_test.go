@@ -11,86 +11,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
-	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
-var testHost flagvalues.NetAddress = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http"}
-
-type innerStructure struct {
-	store      repository.Repository
-	strGen     service.StringGenerator
-	shortifier *service.Shortifier
-	handlers   *handler.Handlers
-	config     *config.Config
+type mockStrGenSequence struct {
+	values []string
+	idx    int
 }
 
-func Test_handlers_Redirect(t *testing.T) {
-
-	tests := []struct {
-		name             string
-		url              string
-		defaultStructure *innerStructure
-		want             testcommon.ResponseWant
-	}{
-		{
-			name: "Get redirect",
-			url:  "/short-url",
-			defaultStructure: &innerStructure{
-				store:  repository.NewInMemoryStore(map[string]string{"short-url": "full-url"}),
-				config: &config.Config{AppURL: testHost},
-			},
-			want: testcommon.ResponseWant{
-				StatusCode: http.StatusTemporaryRedirect,
-				Headers:    map[string]string{"Location": "full-url"},
-			},
-		},
-		{
-			name: "Not found url",
-			url:  "/" + testcommon.ShortHash,
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
-			want: testcommon.ResponseWant{
-				StatusCode: http.StatusNotFound,
-			},
-		},
-		{
-			name: "No url param",
-			url:  "",
-			want: testcommon.ResponseWant{
-				StatusCode: http.StatusMethodNotAllowed,
-			},
-		},
+func (m *mockStrGenSequence) GetRandomString(n int) string {
+	if len(m.values) == 0 {
+		return ""
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			//Init
-
-			req := httptest.NewRequest(http.MethodGet, testHost.String()+tt.url, nil)
-
-			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
-
-			//Run
-			r.ServeHTTP(recorder, req)
-			res := recorder.Result()
-			defer res.Body.Close()
-
-			//Check
-			testcommon.CheckResponseFields(t, res, tt.want)
-		})
-	}
+	value := m.values[m.idx%len(m.values)]
+	m.idx++
+	return value
 }
 
 func Test_handlers_ShortifyURL(t *testing.T) {
@@ -320,29 +258,164 @@ func Test_handlers_ShortenURL(t *testing.T) {
 	}
 }
 
-func getRouter(testStructure *innerStructure) *chi.Mux {
+func Test_handlers_ShortenBatch(t *testing.T) {
 
-	if testStructure == nil {
-		testStructure = &innerStructure{}
+	host := "http://localhost:8080"
+	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
+
+	shortURL1, _ := url.JoinPath(host, "short-1")
+	shortURL2, _ := url.JoinPath(host, "short-2")
+
+	tests := []struct {
+		name             string
+		payload          model.ShortenBatchReq
+		defaultStructure *innerStructure
+		contentType      string
+		want             testcommon.ResponseWant
+	}{
+		{
+			name: "create short urls",
+			payload: model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: "http://long-url-1.com"},
+				{CorrelationID: "2", FullURL: "http://long-url-2.com"},
+			},
+			defaultStructure: &innerStructure{
+				strGen: &mockStrGenSequence{values: []string{"short-1", "short-2"}},
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusCreated,
+				Body: fmt.Sprintf(
+					`[{"correlation_id":"1","short_url":"%s","is_created":true},{"correlation_id":"2","short_url":"%s","is_created":true}]`,
+					shortURL1,
+					shortURL2,
+				),
+			},
+		},
+		{
+			name: "url exists",
+			payload: model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: "http://long-url.com"},
+			},
+			defaultStructure: &innerStructure{
+				strGen: &mockStrGenSequence{values: []string{"short-1"}},
+				store:  repository.NewInMemoryStore(map[string]string{"short-1": "http://long-url.com"}),
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusCreated,
+				Body: fmt.Sprintf(
+					`[{"correlation_id":"1","short_url":"%s","is_created":false}]`,
+					shortURL1,
+				),
+			},
+		},
+		{
+			name: "url wrong format",
+			payload: model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: "/gdfgdfhs"},
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name: "empty url",
+			payload: model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: ""},
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name: "wrong content-type",
+			payload: model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: "http://long-url.com"},
+			},
+			contentType: "text",
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusUnsupportedMediaType,
+				Body:       "",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			jsonBody, err := json.Marshal(tt.payload)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
+
+			if tt.contentType == "" {
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req.Header.Set("Content-Type", tt.contentType)
+			}
+
+			recorder := httptest.NewRecorder()
+			r := getRouter(tt.defaultStructure)
+
+			r.ServeHTTP(recorder, req)
+			res := recorder.Result()
+			defer res.Body.Close()
+
+			testcommon.CheckResponseFields(t, res, tt.want)
+		})
+	}
+}
+
+func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
+
+	host := "http://localhost:8080"
+	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
+
+	source := map[string]string{
+		"1": "http://long-url-1.com",
+		"2": "http://long-url-2.com",
 	}
 
-	if testStructure != nil && testStructure.store == nil {
-		testStructure.store = repository.NewInMemoryStore(nil)
+	payload := model.ShortenBatchReq{
+		{CorrelationID: "1", FullURL: source["1"]},
+		{CorrelationID: "2", FullURL: source["2"]},
 	}
 
-	if testStructure != nil && testStructure.strGen == nil {
-		testStructure.strGen = &service.StrGenerator{}
+	jsonBody, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	r := getRouter(&innerStructure{
+		strGen: &mockStrGenSequence{values: []string{"short-1", "short-2"}},
+	})
+
+	r.ServeHTTP(recorder, req)
+	res := recorder.Result()
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusCreated, res.StatusCode)
+
+	var batchResp model.ShortenBatchResp
+	err = json.NewDecoder(res.Body).Decode(&batchResp)
+	require.NoError(t, err)
+
+	for _, item := range batchResp {
+		original, ok := source[item.CorrelationID]
+		require.True(t, ok)
+
+		parsed, err := url.Parse(item.ShortURL)
+		require.NoError(t, err)
+		shortKey := strings.TrimPrefix(parsed.Path, "/")
+
+		resolveReq := httptest.NewRequest(http.MethodGet, item.ShortURL, nil)
+		resolveReq.SetPathValue("url", shortKey)
+		resolveRecorder := httptest.NewRecorder()
+		r.ServeHTTP(resolveRecorder, resolveReq)
+		resolveRes := resolveRecorder.Result()
+		resolveRes.Body.Close()
+
+		require.Equal(t, http.StatusTemporaryRedirect, resolveRes.StatusCode)
+		require.Equal(t, original, resolveRes.Header.Get("Location"))
 	}
-
-	if testStructure != nil && testStructure.config == nil {
-		testStructure.config, _ = config.GetConfig([]string{}, &zerolog.Logger{})
-	}
-
-	shortifier := service.NewShortifier(testStructure.strGen, testStructure.store, &testStructure.config.RedirectDomain)
-
-	h := &handler.Handlers{
-		Shortifier: shortifier,
-	}
-
-	return router.NewRouter(h)
 }
