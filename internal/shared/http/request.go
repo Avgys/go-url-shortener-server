@@ -10,7 +10,7 @@ import (
 
 func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
-	buffer := make([]byte, 128)
+	buffer := make([]byte, 256)
 	readBytes := 0
 	var err error
 
@@ -19,7 +19,7 @@ func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
 		fmt.Printf("got error %v\n", err)
 
-		return nil, fmt.Errorf("got error reading url: %w", err)
+		return nil, fmt.Errorf("got error reading body: %w", err)
 	}
 
 	if readBytes == 0 {

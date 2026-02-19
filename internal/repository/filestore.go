@@ -106,6 +106,21 @@ func (fs *FileStore) StoreURL(ctx context.Context, url string, shortURL string) 
 	return fs.store.StoreURL(ctx, url, shortURL)
 }
 
+func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
+	if fs.isClosed {
+		err = ErrFileClosed
+		return
+	}
+
+	for fullURL, shortURL := range input {
+		if err = fs.append(&record{FullURL: fullURL, ShortURL: shortURL}); err != nil {
+			return
+		}
+	}
+
+	return fs.store.StoreBatch(ctx, input)
+}
+
 func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
 	if fs.isClosed {
 		return "", ErrFileClosed
@@ -118,8 +133,8 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(record *record) {
-	fs.appender.Encode(record)
+func (fs *FileStore) append(record *record) error {
+	return fs.appender.Encode(record)
 }
 
 func (fs *FileStore) getAll() *storage {

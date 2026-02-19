@@ -66,17 +66,6 @@ func runMigrations(ctx context.Context, cfg *Config) error {
 		cfg.ConnectionString,
 	)
 
-	// sql := `CREATE TABLE IF NOT EXISTS urls (
-	// 		id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-	// 		short_url VARCHAR(255) NOT NULL,
-	// 		long_url VARCHAR(255) NOT NULL,
-	// 		created_at TIMESTAMP NOT NULL DEFAULT now()
-	// 	);
-
-	// 	CREATE INDEX IF NOT EXISTS idx_long_url ON urls(short_url); `
-
-	// _, err := pool.Exec(ctx, sql)
-
 	if err != nil {
 		dir, _ := os.Getwd()
 		return fmt.Errorf("couldn't open migrations, %w, current dir %s", err, dir)

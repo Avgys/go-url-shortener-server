@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
+	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
+	"github.com/samber/lo"
 )
 
 const shortURLMaxLength = 8
@@ -93,4 +95,67 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 	}
 
 	return url, err
+}
+
+func (s *Shortifier) ShortifyBatch(ctx context.Context, request []model.IndexedFullURL, traceLogger *zerolog.Logger) (result model.ShortenBatchResp, err error) {
+
+	if len(request) == 0 {
+		return nil, httpShared.NewError("empty url", http.StatusOK)
+	}
+
+	for _, url := range request {
+
+		if _, err := shared.GetURL(url.FullURL, true); err != nil {
+			return nil, httpShared.NewError("url in wrong format", http.StatusBadRequest)
+		}
+
+		url.FullURL = strings.TrimSpace(url.FullURL)
+	}
+
+	readyBatch := make(map[string]string, len(request))
+	full2shortBatch := make(map[string]string, len(request))
+	urlsToInsert := lo.Map(request, func(x model.IndexedFullURL, _ int) string { return x.FullURL })
+
+	for range maxStoreRetryCount {
+		clear(full2shortBatch)
+
+		for _, fullURL := range urlsToInsert {
+			full2shortBatch[fullURL] = s.stringGenerator.GetRandomString(shortURLMaxLength)
+		}
+
+		retryToInsert, alreadyExists, storeErr := s.store.StoreBatch(ctx, full2shortBatch)
+
+		if storeErr != nil {
+			return nil, fmt.Errorf("error saving short url in store, %w", storeErr)
+		}
+
+		for k, v := range alreadyExists {
+			readyBatch[k] = v
+		}
+
+		for k, v := range full2shortBatch {
+			_, exists := alreadyExists[k]
+			if exists || lo.Contains(retryToInsert, k) {
+				break
+			}
+
+			readyBatch[k] = v
+		}
+
+		if len(retryToInsert) == 0 {
+			break
+		}
+
+		urlsToInsert = retryToInsert
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error saving short url in store, %w", err)
+	}
+
+	result = lo.Map(request, func(x model.IndexedFullURL, _ int) model.IndexedShortURL {
+		return model.IndexedShortURL{CorrelationId: x.CorrelationId, ShortURL: readyBatch[x.FullURL]}
+	})
+
+	return
 }

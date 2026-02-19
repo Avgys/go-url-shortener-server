@@ -3,15 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 )
 
@@ -23,6 +20,7 @@ type Handlers struct {
 type Shortifier interface {
 	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
 	ShortifyURL(ctx context.Context, model string, logger *zerolog.Logger) (string, error)
+	ShortifyBatch(ctx context.Context, model []model.IndexedFullURL, logger *zerolog.Logger) (model.ShortenBatchResp, error)
 }
 
 func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
@@ -53,14 +51,10 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	traceLogger := logger.Endpoint(r.Context(), "ShortenURL")
 
-	body, shouldReturn := getBody(w, r, traceLogger)
-	if shouldReturn {
-		return
-	}
-
 	var reqModel model.ShortenReq
 
-	err := json.Unmarshal(body, &reqModel)
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&reqModel)
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
@@ -83,47 +77,32 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	shared.WriteResponse(w, result, http.StatusCreated)
 }
 
-func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
-	var url string
-	var err error
+func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
+	traceLogger := logger.Endpoint(r.Context(), "ShortenBatch")
 
-	traceLogger := logger.Endpoint(ctx, "Redirect")
+	var reqModel model.ShortenBatchReq
 
-	url = chi.URLParam(r, "url")
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&reqModel)
 
-	if url, err = h.Shortifier.ResolveShortURL(ctx, url, traceLogger); err != nil {
+	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 
-	w.Header().Set("Location", url)
-	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
-}
+	shortenBatch, shouldReturn := getShortBatch(h, reqModel, traceLogger, w, r)
+	if shouldReturn {
+		return
+	}
 
-func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, bool) {
-	body, err := shared.GetRequestBody(w, r)
+	result, err := json.Marshal(shortenBatch)
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
-		return nil, true
-	}
-	return body, false
-}
-
-func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
-	resultURL, err := h.Shortifier.ShortifyURL(r.Context(), url, traceLogger)
-
-	if err != nil {
-		if errors.Is(err, service.ErrCollision) {
-			err = shared.NewError(err.Error(), http.StatusTooManyRequests)
-		}
-
-		shared.WriteError(w, r, err, traceLogger)
-
-		return "", true
+		return
 	}
 
-	return resultURL, false
+	w.Header().Set("Content-type", "application/json")
+	shared.WriteResponse(w, result, http.StatusCreated)
 }

@@ -4,19 +4,21 @@ import (
 	"context"
 	"maps"
 	"sync"
+
+	"github.com/samber/lo"
 )
 
 type storage map[string]string
 
 type InMemoryStore struct {
-	data storage
-	mux  sync.Mutex
+	short2long storage
+	mux        sync.Mutex
 }
 
 func NewInMemoryStore(initData storage) *InMemoryStore {
-	s := &InMemoryStore{data: make(storage)}
+	s := &InMemoryStore{short2long: make(storage)}
 
-	maps.Copy(s.data, initData)
+	maps.Copy(s.short2long, initData)
 
 	return s
 }
@@ -25,20 +27,45 @@ func (s *InMemoryStore) StoreURL(ctx context.Context, url string, shortURL strin
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if _, existed := s.data[shortURL]; existed {
+	if _, existed := s.short2long[shortURL]; existed {
 		return ErrCollision
 	}
 
-	s.data[shortURL] = url
+	s.short2long[shortURL] = url
 
 	return nil
+}
+
+func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	for longURL, shortURL := range input {
+		if s.short2long[shortURL] == longURL {
+			continue
+		}
+
+		if storedValue, isStored := s.short2long[shortURL]; isStored && storedValue != longURL {
+			retryToInsert = append(retryToInsert, longURL)
+			continue
+		}
+
+		if value, ok := lo.FindKey(s.short2long, longURL); ok {
+			alreadyExists[longURL] = value
+			continue
+		}
+
+		s.short2long[shortURL] = longURL
+	}
+
+	return
 }
 
 func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	url, ok := s.data[shortURL]
+	url, ok := s.short2long[shortURL]
 
 	var err error = nil
 	if !ok {
@@ -58,7 +85,7 @@ func (s *InMemoryStore) Close() error {
 
 func (s *InMemoryStore) getAll() *storage {
 	result := make(map[string]string)
-	maps.Copy(result, s.data)
+	maps.Copy(result, s.short2long)
 	store := storage(result)
 
 	return &store

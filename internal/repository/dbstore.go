@@ -8,6 +8,8 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/jackc/pgx/v5"
+	"github.com/lib/pq"
+	"github.com/samber/lo"
 )
 
 type DBStore struct {
@@ -69,4 +71,120 @@ func (s *DBStore) TestConnection(ctx context.Context) error {
 func (s *DBStore) Close() error {
 	s.db.Close()
 	return nil
+}
+
+// marked AS (
+// SELECT
+// 	i.long_url,
+// 	i.short_url,
+// 	o.short_url as stored_short_url,
+// 	(o.short_url IS NULL AND o.long_url IS NULL) AS should_insert,
+// 	(o.short_url = i.short_url AND o.long_url != i.long_url) AS retry,
+// 	(o.short_url != i.short_url AND o.long_url = i.long_url OR
+// 		o.short_url = i.short_url AND o.long_url = i.long_url) AS already_exists
+// FROM input i
+// LEFT JOIN urls o
+// 	ON o.long_url = i.long_url OR o.short_url = i.short_url
+// ),
+
+func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
+
+	const queryTmp = `
+		WITH input(long_url, short_url) AS (
+		SELECT *
+		FROM unnest($1::text[], $2::text[]) AS t(long_url, short_url)
+		),		
+
+		marked AS (
+			SELECT
+			i.long_url,
+			i.short_url,
+
+			-- if long_url already exists, what short_url is stored for it?
+			(
+			SELECT u.short_url
+			FROM urls u
+			WHERE u.long_url = i.long_url
+			LIMIT 1
+			) AS stored_short_url,
+
+			-- can insert only if neither key exists
+			NOT EXISTS (
+			SELECT 1 FROM urls u
+			WHERE u.long_url = i.long_url OR u.short_url = i.short_url
+			) AS should_insert,
+
+			-- short_url collision: same short_url already used for a different long_url
+			EXISTS (
+			SELECT 1 FROM urls u
+			WHERE u.short_url = i.short_url AND u.long_url <> i.long_url
+			) AS retry
+
+			FROM input i
+		),
+
+		inserted AS (
+			INSERT INTO urls (long_url, short_url)
+			SELECT long_url, short_url
+			FROM marked
+			WHERE should_insert
+		)
+
+		SELECT
+		m.short_url,
+		m.long_url,
+		m.stored_short_url,
+		m.retry
+		FROM marked m
+		WHERE retry OR stored_short_url IS NOT NULL;`
+
+	tx, _ := s.db.Pool.Begin(ctx)
+
+	fullURLArray := lo.Map(lo.Keys(input), func(x string, _ int) string { return x })
+	shortURLArray := lo.Map(lo.Values(input), func(x string, _ int) string { return x })
+
+	st, err := tx.Prepare(ctx, "insert", queryTmp)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to prepare: %w", err)
+	}
+
+	rows, err := tx.Query(ctx, st.Name, pq.Array(fullURLArray), pq.Array(shortURLArray))
+
+	if err != nil {
+		rollbackErr := tx.Rollback(ctx)
+		return nil, nil, fmt.Errorf("rows error: %w, rollback error: %w", err, rollbackErr)
+	}
+
+	alreadyStoredURL = make(map[string]string, 0)
+	retryToInsert = make([]string, 0)
+
+	defer rows.Close()
+	for rows.Next() {
+		var shortURL, longURL, storedShortURL string
+		var retry bool
+
+		if err := rows.Scan(&shortURL, &longURL, &storedShortURL, &retry); err != nil {
+			return nil, nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		if storedShortURL != "" {
+			alreadyStoredURL[longURL] = storedShortURL
+		}
+
+		if retry {
+			retryToInsert = append(retryToInsert, longURL)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		rollbackErr := tx.Rollback(ctx)
+		return nil, nil, fmt.Errorf("rows error: %w, rollback error: %w", err, rollbackErr)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return
 }

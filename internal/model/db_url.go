@@ -8,3 +8,8 @@ type DBURL struct {
 	ShortURL string
 	UpdateAt time.Time
 }
+
+type URLInsertModel struct {
+	FullURL  string
+	ShortURL string
+}
