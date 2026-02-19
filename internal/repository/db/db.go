@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -46,6 +47,8 @@ func initPool(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the DSN: %w", err)
 	}
+
+	poolCfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 

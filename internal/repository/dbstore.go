@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
@@ -15,6 +16,8 @@ import (
 type DBStore struct {
 	db *db.DB
 }
+
+const dbOpTimeout = 1 * time.Second
 
 func NewDBStore(ctx context.Context, dbConfig *db.Config) (*DBStore, error) {
 	dbConnection, err := db.NewDB(ctx, dbConfig)
@@ -32,7 +35,10 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 		FROM public.urls 
 		WHERE short_url = $1`
 
-	row := s.db.Pool.QueryRow(ctx, queryTmp, shortURL)
+	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
+	defer cancel()
+
+	row := s.db.Pool.QueryRow(ctxTimeout, queryTmp, shortURL)
 
 	var dbVal model.DBURL
 
@@ -57,20 +63,6 @@ func (s *DBStore) Close() error {
 	s.db.Close()
 	return nil
 }
-
-// marked AS (
-// SELECT
-// 	i.long_url,
-// 	i.short_url,
-// 	o.short_url as stored_short_url,
-// 	(o.short_url IS NULL AND o.long_url IS NULL) AS should_insert,
-// 	(o.short_url = i.short_url AND o.long_url != i.long_url) AS retry,
-// 	(o.short_url != i.short_url AND o.long_url = i.long_url OR
-// 		o.short_url = i.short_url AND o.long_url = i.long_url) AS already_exists
-// FROM input i
-// LEFT JOIN urls o
-// 	ON o.long_url = i.long_url OR o.short_url = i.short_url
-// ),
 
 func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
 
@@ -123,22 +115,27 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryT
 		FROM marked m
 		WHERE retry OR stored_short_url IS NOT NULL;`
 
-	tx, _ := s.db.Pool.Begin(ctx)
+	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
+	defer cancel()
+
+	tx, err := s.db.Pool.Begin(ctxTimeout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctxTimeout)
+		}
+	}()
 
 	fullURLArray := lo.Map(lo.Keys(input), func(x string, _ int) string { return x })
 	shortURLArray := lo.Map(lo.Values(input), func(x string, _ int) string { return x })
 
-	st, err := tx.Prepare(ctx, "insert", queryTmp)
+	rows, err := tx.Query(ctxTimeout, queryTmp, pq.Array(fullURLArray), pq.Array(shortURLArray))
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to prepare: %w", err)
-	}
-
-	rows, err := tx.Query(ctx, st.Name, pq.Array(fullURLArray), pq.Array(shortURLArray))
-
-	if err != nil {
-		rollbackErr := tx.Rollback(ctx)
-		return nil, nil, fmt.Errorf("rows error: %w, rollback error: %w", err, rollbackErr)
+		return nil, nil, fmt.Errorf("rows error: %w", err)
 	}
 
 	alreadyStoredURL = make(map[string]string, 0)
@@ -163,11 +160,10 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryT
 	}
 
 	if err := rows.Err(); err != nil {
-		rollbackErr := tx.Rollback(ctx)
-		return nil, nil, fmt.Errorf("rows error: %w, rollback error: %w", err, rollbackErr)
+		return nil, nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctxTimeout); err != nil {
 		return nil, nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
