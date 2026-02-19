@@ -10,23 +10,17 @@ import (
 
 func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
-	buffer := make([]byte, 256)
-	readBytes := 0
-	var err error
-
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 
-	if readBytes, err = r.Body.Read(buffer); err != nil && err != io.EOF {
+	result, err := io.ReadAll(r.Body)
+	if err != nil {
 		fmt.Printf("got error %v\n", err)
-
 		return nil, fmt.Errorf("got error reading body: %w", err)
 	}
 
-	if readBytes == 0 {
+	if len(result) == 0 {
 		return nil, NewError("empty param body", http.StatusBadRequest)
 	}
-
-	result := buffer[:readBytes]
 
 	traceLogger := logger.FromContext(r.Context())
 	traceLogger.Info().

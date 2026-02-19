@@ -72,9 +72,14 @@ func NewFileStore(filename string) (*FileStore, error) {
 	return &FileStore{file: file, store: NewInMemoryStore(records), appender: appender}, nil
 }
 
-func clearFile(file *os.File) {
-	file.Truncate(0)
-	file.Seek(0, 0)
+func clearFile(file *os.File) error {
+	if err := file.Truncate(0); err != nil {
+		return fmt.Errorf("failed to truncate file: %w", err)
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to seek file: %w", err)
+	}
+	return nil
 }
 
 func (fs *FileStore) Close() error {
@@ -82,7 +87,9 @@ func (fs *FileStore) Close() error {
 		return errors.New("filestore closed")
 	}
 
-	clearFile(fs.file)
+	if err := clearFile(fs.file); err != nil {
+		return err
+	}
 
 	s := fs.getAll()
 
