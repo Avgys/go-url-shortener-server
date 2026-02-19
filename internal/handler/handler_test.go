@@ -130,8 +130,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusTooManyRequests,
-				Body:       service.ErrCollision.Error(),
+				StatusCode: http.StatusConflict,
 			},
 		},
 		{
@@ -270,8 +269,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 				strGen: &testcommon.MockStrGen{},
 				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
 			want: testcommon.ResponseWant{
-				StatusCode: http.StatusTooManyRequests,
-				Body:       service.ErrCollision.Error(),
+				StatusCode: http.StatusConflict,
 			},
 		},
 		{

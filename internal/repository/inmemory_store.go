@@ -27,10 +27,10 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	alreadyExists = make(map[string]string)
+	retryToInsert = make([]string, 0)
+
 	for longURL, shortURL := range input {
-		if s.short2long[shortURL] == longURL {
-			continue
-		}
 
 		if storedValue, isStored := s.short2long[shortURL]; isStored && storedValue != longURL {
 			retryToInsert = append(retryToInsert, longURL)
