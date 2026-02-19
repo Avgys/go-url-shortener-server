@@ -55,7 +55,7 @@ func (s *Shortifier) ShortifyURL(ctx context.Context, inputURL string, traceLogg
 		return nil, httpShared.NewError("url in wrong format", http.StatusBadRequest)
 	}
 
-	result, storeErr := s.ShortifyBatch(ctx, []model.IndexedFullURL{{FullURL: inputURL, CorrelationId: "NO_ID"}}, traceLogger)
+	result, storeErr := s.ShortifyBatch(ctx, []model.IndexedFullURL{{FullURL: inputURL, CorrelationID: "NO_ID"}}, traceLogger)
 
 	// tries exceed retry count
 	if storeErr != nil && errors.Is(storeErr, repository.ErrCollision) {
@@ -63,8 +63,6 @@ func (s *Shortifier) ShortifyURL(ctx context.Context, inputURL string, traceLogg
 	}
 
 	shortURL := result[0]
-	link, _ := url.JoinPath(s.redirectAddr.String(), shortURL.ShortURL)
-	shortURL.ShortURL = link
 
 	return &shortURL, nil
 }
@@ -148,7 +146,8 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, request []model.IndexedF
 
 	result = lo.Map(request, func(x model.IndexedFullURL, _ int) model.IndexedShortURL {
 		storedInfo := readyBatch[x.FullURL]
-		return model.IndexedShortURL{CorrelationId: x.CorrelationId, ShortURL: storedInfo.shortURL, IsCreated: storedInfo.new}
+		link, _ := url.JoinPath(s.redirectAddr.String(), storedInfo.shortURL)
+		return model.IndexedShortURL{CorrelationID: x.CorrelationID, ShortURL: link, IsCreated: storedInfo.new}
 	})
 
 	if len(urlsToInsert) != 0 {
