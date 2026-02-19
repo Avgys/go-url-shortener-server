@@ -96,16 +96,6 @@ func (fs *FileStore) Close() error {
 	return fs.file.Close()
 }
 
-func (fs *FileStore) StoreURL(ctx context.Context, url string, shortURL string) error {
-	if fs.isClosed {
-		return ErrFileClosed
-	}
-
-	fs.append(&record{FullURL: url, ShortURL: shortURL})
-
-	return fs.store.StoreURL(ctx, url, shortURL)
-}
-
 func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	if fs.isClosed {
 		err = ErrFileClosed

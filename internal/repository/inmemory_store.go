@@ -23,19 +23,6 @@ func NewInMemoryStore(initData storage) *InMemoryStore {
 	return s
 }
 
-func (s *InMemoryStore) StoreURL(ctx context.Context, url string, shortURL string) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if _, existed := s.short2long[shortURL]; existed {
-		return ErrCollision
-	}
-
-	s.short2long[shortURL] = url
-
-	return nil
-}
-
 func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()

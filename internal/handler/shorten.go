@@ -19,7 +19,7 @@ type Handlers struct {
 
 type Shortifier interface {
 	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
-	ShortifyURL(ctx context.Context, model string, logger *zerolog.Logger) (string, error)
+	ShortifyURL(ctx context.Context, model string, logger *zerolog.Logger) (*model.IndexedShortURL, error)
 	ShortifyBatch(ctx context.Context, model []model.IndexedFullURL, logger *zerolog.Logger) (model.ShortenBatchResp, error)
 }
 
@@ -43,8 +43,16 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var status int
+
+	if resultURL.IsCreated {
+		status = http.StatusCreated
+	} else {
+		status = http.StatusConflict
+	}
+
 	w.Header().Set("Content-type", "text/plain")
-	shared.WriteResponse(w, []byte(resultURL), http.StatusCreated)
+	shared.WriteResponse(w, []byte(resultURL.ShortURL), status)
 }
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +74,15 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := json.Marshal(model.ShortenResp{URL: resultURL})
+	var status int
+
+	if resultURL.IsCreated {
+		status = http.StatusCreated
+	} else {
+		status = http.StatusConflict
+	}
+
+	result, err := json.Marshal(model.ShortenResp{URL: resultURL.ShortURL})
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
@@ -74,7 +90,7 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, result, http.StatusCreated)
+	shared.WriteResponse(w, result, status)
 }
 
 func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {

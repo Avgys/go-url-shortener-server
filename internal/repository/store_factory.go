@@ -10,7 +10,6 @@ import (
 type Full2ShortBatch map[string]string
 
 type Repository interface {
-	StoreURL(ctx context.Context, url string, urlHash string) error
 	StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error)
 	ResolveShortURL(ctx context.Context, shortURL string) (string, error)
 	TestConnection(ctx context.Context) error

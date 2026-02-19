@@ -26,21 +26,6 @@ func NewDBStore(ctx context.Context, dbConfig *db.Config) (*DBStore, error) {
 	return &DBStore{db: dbConnection}, nil
 }
 
-func (s *DBStore) StoreURL(ctx context.Context, fullURL string, shortURL string) error {
-
-	const queryTmp = `
-		INSERT INTO public.urls (short_url, long_url)
-		VALUES ($1, $2)`
-
-	_, err := s.db.Pool.Exec(ctx, queryTmp, shortURL, fullURL)
-
-	if err != nil {
-		return fmt.Errorf("failed to insert value: %w", err)
-	}
-
-	return nil
-}
-
 func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
 	const queryTmp = `
 		SELECT id, short_url, long_url, created_at

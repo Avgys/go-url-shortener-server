@@ -21,7 +21,7 @@ func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger
 	return body, false
 }
 
-func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (string, bool) {
+func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.IndexedShortURL, bool) {
 	resultURL, err := h.Shortifier.ShortifyURL(r.Context(), url, traceLogger)
 
 	if err != nil {
@@ -30,7 +30,7 @@ func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.Re
 		}
 
 		shared.WriteError(w, r, err, traceLogger)
-		return "", true
+		return nil, true
 	}
 
 	return resultURL, false

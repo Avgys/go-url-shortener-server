@@ -22,6 +22,7 @@ const maxStoreRetryCount = 20
 
 var (
 	ErrCollision = errors.New("could not find free space to store url")
+	ErrConflict  = errors.New("url already stored")
 )
 
 type StringGenerator interface {
@@ -35,49 +36,37 @@ type Shortifier struct {
 	redirectAddr    *flagvalues.NetAddress
 }
 
+type storeInfo struct {
+	shortURL string
+	new      bool
+}
+
 func NewShortifier(stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) *Shortifier {
 	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 }
 
-func (s *Shortifier) ShortifyURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (string, error) {
+func (s *Shortifier) ShortifyURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*model.IndexedShortURL, error) {
 
 	if inputURL == "" {
-		return "", httpShared.NewError("empty url", http.StatusBadRequest)
+		return nil, httpShared.NewError("empty url", http.StatusBadRequest)
 	}
 
 	if _, err := shared.GetURL(inputURL, true); err != nil {
-		return "", httpShared.NewError("url in wrong format", http.StatusBadRequest)
+		return nil, httpShared.NewError("url in wrong format", http.StatusBadRequest)
 	}
 
-	trimmedURL := strings.TrimSpace(inputURL)
-
-	shortURL := ""
-
-	var storeErr error
-
-	for range maxStoreRetryCount {
-		shortURL = s.stringGenerator.GetRandomString(shortURLMaxLength)
-		storeErr = s.store.StoreURL(ctx, trimmedURL, shortURL)
-
-		if storeErr != nil {
-			// if collision try again
-			if errors.Is(storeErr, repository.ErrCollision) {
-				continue
-			}
-
-			return "", fmt.Errorf("error saving short url in store, %w", storeErr)
-		}
-
-		// if no errors, then value stored successfuly
-		break
-	}
+	result, storeErr := s.ShortifyBatch(ctx, []model.IndexedFullURL{{FullURL: inputURL, CorrelationId: "NO_ID"}}, traceLogger)
 
 	// tries exceed retry count
 	if storeErr != nil && errors.Is(storeErr, repository.ErrCollision) {
-		return "", ErrCollision
+		return nil, ErrCollision
 	}
 
-	return url.JoinPath(s.redirectAddr.String(), shortURL)
+	shortURL := result[0]
+	link, _ := url.JoinPath(s.redirectAddr.String(), shortURL.ShortURL)
+	shortURL.ShortURL = link
+
+	return &shortURL, nil
 }
 
 func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (string, error) {
@@ -112,7 +101,7 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, request []model.IndexedF
 		url.FullURL = strings.TrimSpace(url.FullURL)
 	}
 
-	readyBatch := make(map[string]string, len(request))
+	readyBatch := make(map[string]storeInfo, len(request))
 	full2shortBatch := make(map[string]string, len(request))
 	urlsToInsert := lo.Map(request, func(x model.IndexedFullURL, _ int) string { return x.FullURL })
 
@@ -125,37 +114,46 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, request []model.IndexedF
 
 		retryToInsert, alreadyExists, storeErr := s.store.StoreBatch(ctx, full2shortBatch)
 
+		traceLogger.Info().
+			Strs("retryToInsert", retryToInsert).
+			Strs("alreadyExists", lo.Keys(alreadyExists)).
+			Send()
+
 		if storeErr != nil {
 			return nil, fmt.Errorf("error saving short url in store, %w", storeErr)
 		}
 
-		for k, v := range alreadyExists {
-			readyBatch[k] = v
-		}
-
+		// if already added to result or need to retry, then don't add to result
 		for k, v := range full2shortBatch {
-			_, exists := alreadyExists[k]
-			if exists || lo.Contains(retryToInsert, k) {
-				break
+			_, ready := readyBatch[k]
+			if ready || lo.Contains(retryToInsert, k) {
+				continue
 			}
 
-			readyBatch[k] = v
+			if shortURL, storedOld := alreadyExists[k]; storedOld {
+				readyBatch[k] = storeInfo{shortURL: shortURL, new: false}
+			} else {
+				readyBatch[k] = storeInfo{shortURL: v, new: true}
+			}
 		}
 
+		// If no need retry, break loop
 		if len(retryToInsert) == 0 {
+			urlsToInsert = nil
 			break
 		}
 
 		urlsToInsert = retryToInsert
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("error saving short url in store, %w", err)
-	}
-
 	result = lo.Map(request, func(x model.IndexedFullURL, _ int) model.IndexedShortURL {
-		return model.IndexedShortURL{CorrelationId: x.CorrelationId, ShortURL: readyBatch[x.FullURL]}
+		storedInfo := readyBatch[x.FullURL]
+		return model.IndexedShortURL{CorrelationId: x.CorrelationId, ShortURL: storedInfo.shortURL, IsCreated: storedInfo.new}
 	})
+
+	if len(urlsToInsert) != 0 {
+		err = fmt.Errorf("no free space in storage, %w", err)
+	}
 
 	return
 }

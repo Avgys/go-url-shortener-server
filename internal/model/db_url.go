@@ -9,7 +9,7 @@ type DBURL struct {
 	UpdateAt time.Time
 }
 
-type URLInsertModel struct {
+type URLPairt struct {
 	FullURL  string
 	ShortURL string
 }
