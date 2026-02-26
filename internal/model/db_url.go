@@ -7,9 +7,5 @@ type DBURL struct {
 	FullURL  string
 	ShortURL string
 	UpdateAt time.Time
-}
-
-type URLPairt struct {
-	FullURL  string
-	ShortURL string
+	UserID   int64
 }

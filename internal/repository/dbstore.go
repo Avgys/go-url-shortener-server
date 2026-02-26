@@ -64,7 +64,7 @@ func (s *DBStore) Close() error {
 	return nil
 }
 
-func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
+func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
 
 	const queryTmp = `
 		WITH input(long_url, short_url) AS (
@@ -101,8 +101,8 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryT
 		),
 
 		inserted AS (
-			INSERT INTO urls (long_url, short_url)
-			SELECT long_url, short_url
+			INSERT INTO urls (long_url, short_url, user_id)
+			SELECT long_url, short_url, $3
 			FROM marked
 			WHERE should_insert
 		)
@@ -132,7 +132,7 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryT
 	fullURLArray := lo.Map(lo.Keys(input), func(x string, _ int) string { return x })
 	shortURLArray := lo.Map(lo.Values(input), func(x string, _ int) string { return x })
 
-	rows, err := tx.Query(ctxTimeout, queryTmp, pq.Array(fullURLArray), pq.Array(shortURLArray))
+	rows, err := tx.Query(ctxTimeout, queryTmp, pq.Array(fullURLArray), pq.Array(shortURLArray), userID)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("rows error: %w", err)
@@ -168,4 +168,41 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryT
 	}
 
 	return
+}
+
+func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]model.DBURL, error) {
+	const queryTmp = `
+		SELECT short_url, long_url
+		FROM public.urls 
+		WHERE user_id = $1`
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
+	defer cancel()
+
+	rows, err := s.db.Pool.Query(ctxTimeout, queryTmp, userID)
+
+	if err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	urls := make([]model.DBURL, 0)
+	for rows.Next() {
+		var dbURL model.DBURL
+
+		if err = rows.Scan(&dbURL.ShortURL, &dbURL.FullURL); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrNotFound
+			}
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		urls = append(urls, dbURL)
+	}
+
+	return urls, nil
 }

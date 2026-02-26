@@ -8,6 +8,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
+	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
 )
@@ -19,8 +20,8 @@ type Handlers struct {
 
 type Shortifier interface {
 	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
-	ShortifyURL(ctx context.Context, model string, logger *zerolog.Logger) (*model.IndexedShortURL, error)
-	ShortifyBatch(ctx context.Context, model []model.IndexedFullURL, logger *zerolog.Logger) (model.ShortenBatchResp, error)
+	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (model.ShortenBatchResp, error)
+	GetURLsByUserId(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
 }
 
 func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
@@ -29,7 +30,8 @@ func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
 
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
-	traceLogger := logger.Endpoint(r.Context(), "ShortifyURL")
+	ctx := r.Context()
+	traceLogger := logger.Endpoint(ctx, "ShortifyURL")
 
 	body, shouldReturn := getBody(w, r, traceLogger)
 	if shouldReturn {

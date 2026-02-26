@@ -1,6 +1,7 @@
 package router
 
 import (
+	auth_middlewares "github.com/Avgys/go-url-shortener-server/internal/auth/middlewares"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/middlewares"
 	"github.com/go-chi/chi/v5"
@@ -17,9 +18,20 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
 
-	r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
-	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten", h.ShortenURL)
-	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten/batch", h.ShortenBatch)
+	r.Group(func(r chi.Router) {
+
+		r.Use(auth_middlewares.SetCookie)
+		r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.AllowContentType(jsonType))
+
+			r.Post("/api/shorten", h.ShortenURL)
+			r.Post("/api/shorten/batch", h.ShortenBatch)
+		})
+	})
+
+	r.With(auth_middlewares.RequireCookie).Get("/api/user/urls", h.GetURLsByUserId)
 	r.Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
 

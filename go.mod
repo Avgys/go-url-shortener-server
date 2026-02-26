@@ -1,6 +1,6 @@
 module github.com/Avgys/go-url-shortener-server
 
-go 1.24.11
+go 1.25.11
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1
@@ -13,6 +13,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang-migrate/migrate/v4 v4.19.1 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect
 	github.com/gostaticanalysis/comment v1.5.0 // indirect
