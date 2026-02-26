@@ -59,7 +59,11 @@ func main() {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
-		_ = srv.Shutdown(shutCtx)
+		err = srv.Shutdown(shutCtx)
+
+		if err != nil {
+			log.Err(err).Send()
+		}
 
 		if err := aggCloser.Close(); err != nil {
 			log.Err(err).Send()
