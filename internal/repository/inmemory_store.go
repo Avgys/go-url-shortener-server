@@ -2,47 +2,64 @@ package repository
 
 import (
 	"context"
-	"maps"
 	"sync"
+	"time"
 
+	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/samber/lo"
 )
 
-type storage map[string]string
+type storage map[string]*model.DBURL
 
 type InMemoryStore struct {
-	short2long storage
-	mux        sync.Mutex
+	storage storage
+	mux     sync.Mutex
 }
 
-func NewInMemoryStore(initData storage) *InMemoryStore {
-	s := &InMemoryStore{short2long: make(storage)}
+func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
 
-	maps.Copy(s.short2long, initData)
+	mappedURLs := lo.Associate(initData, func(item *model.DBURL) (string, *model.DBURL) { return item.ShortURL, item })
+	s := &InMemoryStore{storage: mappedURLs}
 
 	return s
 }
 
-func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
+func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	alreadyExists = make(map[string]string)
 	retryToInsert = make([]string, 0)
 
-	for longURL, shortURL := range input {
+	maxURLID := lo.MaxBy(lo.Values(s.storage), func(a *model.DBURL, b *model.DBURL) bool { return a.ID > b.ID })
 
-		if storedValue, isStored := s.short2long[shortURL]; isStored && storedValue != longURL {
-			retryToInsert = append(retryToInsert, longURL)
+	var maxID = 0
+
+	if maxURLID != nil {
+		maxID = maxURLID.ID
+	}
+
+	for originURL, shortURL := range input {
+
+		if storedValue, isStored := s.storage[shortURL]; isStored && storedValue.OriginalURL != originURL {
+			retryToInsert = append(retryToInsert, originURL)
 			continue
 		}
 
-		if value, ok := lo.FindKey(s.short2long, longURL); ok {
-			alreadyExists[longURL] = value
+		if value, ok := lo.FindKeyBy(s.storage, func(_ string, value *model.DBURL) bool { return value.OriginalURL == originURL }); ok {
+			alreadyExists[originURL] = value
 			continue
 		}
 
-		s.short2long[shortURL] = longURL
+		s.storage[shortURL] = &model.DBURL{
+			ShortURL:    shortURL,
+			OriginalURL: originURL,
+			UserID:      userID,
+			CreatedAt:   time.Now().UTC(),
+			ID:          maxID,
+		}
+
+		maxID++
 	}
 
 	return
@@ -52,14 +69,13 @@ func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (s
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	url, ok := s.short2long[shortURL]
+	url, ok := s.storage[shortURL]
 
-	var err error = nil
 	if !ok {
-		err = ErrNotFound
+		return "", ErrNotFound
 	}
 
-	return url, err
+	return url.OriginalURL, nil
 }
 
 func (s *InMemoryStore) TestConnection(ctx context.Context) error {
@@ -70,10 +86,15 @@ func (s *InMemoryStore) Close() error {
 	return nil
 }
 
-func (s *InMemoryStore) getAll() *storage {
-	result := make(map[string]string)
-	maps.Copy(result, s.short2long)
-	store := storage(result)
+func (s *InMemoryStore) getAll() []*model.DBURL {
+	values := lo.Values(s.storage)
+	return values
+}
 
-	return &store
+func (s *InMemoryStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+
+	values := lo.Values(s.storage)
+	values = lo.Filter(values, func(item *model.DBURL, _ int) bool { return item.UserID == userID })
+
+	return values, nil
 }

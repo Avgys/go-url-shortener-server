@@ -66,7 +66,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
 				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
+				store:  repository.NewInMemoryStore([]*model.DBURL{{OriginalURL: "http://long-url.com", ShortURL: testcommon.ShortHash}})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusConflict,
 			},
@@ -205,7 +205,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
 				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewInMemoryStore(map[string]string{testcommon.ShortHash: "http://long-url.com"})},
+				store:  repository.NewInMemoryStore([]*model.DBURL{&model.DBURL{OriginalURL: "http://long-url.com", ShortURL: testcommon.ShortHash}})},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusConflict,
 			},
@@ -298,7 +298,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 			},
 			defaultStructure: &innerStructure{
 				strGen: &mockStrGenSequence{values: []string{"short-1"}},
-				store:  repository.NewInMemoryStore(map[string]string{"short-1": "http://long-url.com"}),
+				store:  repository.NewInMemoryStore([]*model.DBURL{&model.DBURL{OriginalURL: "http://long-url.com", ShortURL: "short-1"}}),
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusCreated,

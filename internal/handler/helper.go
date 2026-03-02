@@ -26,12 +26,16 @@ func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger
 
 func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.IndexedShortURL, bool) {
 	batch := model.ShortenBatchReq{model.IndexedFullURL{FullURL: url}}
-	urls, isReturn := getShortBatch(h, batch, traceLogger, w, r)
+	urls, shouldReturn := shortenBatch(h, batch, traceLogger, w, r)
 
-	return &(*urls)[0], isReturn
+	if shouldReturn {
+		return nil, true
+	}
+
+	return &(*urls)[0], false
 }
 
-func getShortBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.ShortenBatchResp, bool) {
+func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.ShortenBatchResp, bool) {
 
 	ctx := r.Context()
 	claims, _ := getClaims(ctx)

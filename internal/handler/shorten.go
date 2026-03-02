@@ -109,7 +109,7 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortenBatch, shouldReturn := getShortBatch(h, reqModel, traceLogger, w, r)
+	shortenBatch, shouldReturn := shortenBatch(h, reqModel, traceLogger, w, r)
 	if shouldReturn {
 		return
 	}

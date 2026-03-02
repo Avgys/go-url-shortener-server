@@ -13,7 +13,7 @@ type Full2ShortBatch map[string]string
 type Repository interface {
 	StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error)
 	ResolveShortURL(ctx context.Context, shortURL string) (string, error)
-	GetURLsByUserId(ctx context.Context, userID int64) ([]model.DBURL, error)
+	GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error)
 	TestConnection(ctx context.Context) error
 	Close() error
 }
@@ -25,8 +25,8 @@ func NewRepository(ctx context.Context, cfg *config.Config) (Repository, error) 
 	// }
 
 	// if cfg.FileStoragePath != "" {
-	// 	return NewFileStore(cfg.FileStoragePath)
+	return NewFileStore(cfg.FileStoragePath)
 	// }
 
-	// return NewInMemoryStore(nil), nil
+	return NewInMemoryStore(nil), nil
 }

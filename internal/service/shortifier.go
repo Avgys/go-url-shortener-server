@@ -154,10 +154,10 @@ func (s *Shortifier) GetURLsByUserId(ctx context.Context, userID int64, traceLog
 		return nil, httpShared.NewError("no urls", http.StatusNoContent)
 	}
 
-	result := lo.Map(dbURLs, func(dbPair model.DBURL, _ int) model.URLPair {
-		link, _ := url.JoinPath(s.redirectAddr.String(), dbPair.ShortURL)
-		return model.URLPair{OriginalURL: dbPair.FullURL, ShortURL: link}
+	urls := lo.Map(dbURLs, func(dbURL *model.DBURL, _ int) model.URLPair {
+		link, _ := url.JoinPath(s.redirectAddr.String(), dbURL.ShortURL)
+		return model.URLPair{ShortURL: link, OriginalURL: dbURL.OriginalURL}
 	})
 
-	return result, err
+	return urls, err
 }

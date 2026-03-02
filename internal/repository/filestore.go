@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/gocarina/gocsv"
 )
 
 var (
@@ -17,13 +20,8 @@ var (
 type FileStore struct {
 	store    *InMemoryStore
 	file     *os.File
-	appender *json.Encoder
+	appender *gocsv.SafeCSVWriter
 	isClosed bool
-}
-
-type record struct {
-	ShortURL string `json:"short_url"`
-	FullURL  string `json:"full_url"`
 }
 
 func NewFileStore(filename string) (*FileStore, error) {
@@ -46,30 +44,16 @@ func NewFileStore(filename string) (*FileStore, error) {
 		return nil, err
 	}
 
-	records := make(storage, 0)
-	dec := json.NewDecoder(file)
+	records := make([]*model.DBURL, 0)
 
-	for {
-		var r record
-		err := dec.Decode(&r)
-
-		if err != nil {
-
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
-			err = fmt.Errorf("error parsing store file, %w ", err)
-			return nil, err
-		}
-
-		records[r.ShortURL] = r.FullURL
+	if err := gocsv.Unmarshal(file, &records); err != nil {
+		panic(err)
 	}
 
-	appender := json.NewEncoder(file)
-	appender.SetEscapeHTML(false)
+	writer := csv.NewWriter(file)
+	gocsvWriter := gocsv.NewSafeCSVWriter(writer)
 
-	return &FileStore{file: file, store: NewInMemoryStore(records), appender: appender}, nil
+	return &FileStore{file: file, store: NewInMemoryStore(records), appender: gocsvWriter}, nil
 }
 
 func clearFile(file *os.File) error {
@@ -93,8 +77,8 @@ func (fs *FileStore) Close() error {
 
 	s := fs.getAll()
 
-	for k, v := range *s {
-		fs.append(&record{ShortURL: k, FullURL: v})
+	for _, v := range s {
+		fs.append(v)
 	}
 
 	fs.file.Sync()
@@ -103,19 +87,19 @@ func (fs *FileStore) Close() error {
 	return fs.file.Close()
 }
 
-func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
+func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	if fs.isClosed {
 		err = ErrFileClosed
 		return
 	}
 
 	for fullURL, shortURL := range input {
-		if err = fs.append(&record{FullURL: fullURL, ShortURL: shortURL}); err != nil {
+		if err = fs.append(&model.DBURL{OriginalURL: fullURL, ShortURL: shortURL}); err != nil {
 			return
 		}
 	}
 
-	return fs.store.StoreBatch(ctx, input)
+	return fs.store.StoreBatch(ctx, input, userID)
 }
 
 func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
@@ -130,10 +114,26 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(record *record) error {
-	return fs.appender.Encode(record)
+func (fs *FileStore) append(record *model.DBURL) error {
+	pos, err := fs.file.Seek(0, io.SeekCurrent)
+
+	if err != nil {
+		return err
+	}
+
+	if pos == 0 {
+		err = gocsv.MarshalCSV(record, fs.appender)
+	} else {
+		err = gocsv.MarshalCSVWithoutHeaders(record, fs.appender)
+	}
+
+	return err
 }
 
-func (fs *FileStore) getAll() *storage {
+func (fs *FileStore) getAll() []*model.DBURL {
 	return fs.store.getAll()
+}
+
+func (s *FileStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+	return s.store.GetURLsByUserId(ctx, userID)
 }

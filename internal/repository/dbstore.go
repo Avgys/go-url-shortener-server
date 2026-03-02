@@ -42,7 +42,7 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 
 	var dbVal model.DBURL
 
-	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.FullURL, &dbVal.UpdateAt)
+	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -52,7 +52,7 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 		return "", fmt.Errorf("failed to scan a response row: %w", err)
 	}
 
-	return dbVal.FullURL, nil
+	return dbVal.OriginalURL, nil
 }
 
 func (s *DBStore) TestConnection(ctx context.Context) error {
@@ -170,7 +170,7 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 	return
 }
 
-func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]model.DBURL, error) {
+func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 	const queryTmp = `
 		SELECT short_url, long_url
 		FROM public.urls 
@@ -189,11 +189,11 @@ func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]model.DB
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	urls := make([]model.DBURL, 0)
+	urls := make([]*model.DBURL, 0)
 	for rows.Next() {
 		var dbURL model.DBURL
 
-		if err = rows.Scan(&dbURL.ShortURL, &dbURL.FullURL); err != nil {
+		if err = rows.Scan(&dbURL.ShortURL, &dbURL.OriginalURL); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrNotFound
 			}
@@ -201,8 +201,12 @@ func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]model.DB
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		urls = append(urls, dbURL)
+		urls = append(urls, &dbURL)
 	}
 
-	return urls, nil
+	result := lo.Map(urls, func(dbPair *model.DBURL, _ int) *model.DBURL {
+		return &model.DBURL{OriginalURL: dbPair.OriginalURL, ShortURL: dbPair.ShortURL}
+	})
+
+	return result, nil
 }
