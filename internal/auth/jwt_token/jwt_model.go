@@ -40,7 +40,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, verifyToken)
 
-	if err != nil && !token.Valid {
+	if err != nil || !token.Valid {
 		return nil, err
 	}
 
@@ -54,8 +54,3 @@ func verifyToken(t *jwt.Token) (interface{}, error) {
 
 	return []byte(SECRET_KEY), nil
 }
-
-// func NewJwtToken(claims Claims) (string, error) {
-// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-// }

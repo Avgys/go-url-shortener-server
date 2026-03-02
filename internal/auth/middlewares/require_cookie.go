@@ -14,14 +14,14 @@ func RequireCookie(h http.Handler) http.Handler {
 
 		authCookie, err := r.Cookie(auth.AUTH_COOKIE)
 
-		if err == http.ErrNoCookie {
+		if err == http.ErrNoCookie || authCookie == nil || authCookie.Value == "" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		claims, err := jwt_token.ParseToken(authCookie.Value)
 
-		if claims.UserID == 0 || err != nil {
+		if err != nil || claims == nil || claims.UserID == 0 {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}

@@ -1,0 +1,98 @@
+package handler_test
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Avgys/go-url-shortener-server/internal/repository"
+	repositorydb "github.com/Avgys/go-url-shortener-server/internal/repository/db"
+	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
+	"github.com/stretchr/testify/require"
+)
+
+func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	rootDir := filepath.Clean(filepath.Join(wd, "..", "..", ".."))
+	require.NoError(t, os.Chdir(rootDir))
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_DSN is not set")
+	}
+
+	ctx := context.Background()
+	dbConn, err := repositorydb.NewDB(ctx, &repositorydb.Config{ConnectionString: dsn})
+	require.NoError(t, err)
+	t.Cleanup(dbConn.Close)
+
+	_, err = dbConn.Pool.Exec(ctx, "TRUNCATE TABLE urls")
+	require.NoError(t, err)
+	defer func() {
+		_, _ = dbConn.Pool.Exec(ctx, "TRUNCATE TABLE urls")
+	}()
+
+	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = store.Close() })
+
+	tests := []struct {
+		name             string
+		url              string
+		defaultStructure *innerStructure
+		contentType      string
+		want             testcommon.ResponseWant
+	}{
+		{
+			name: "create shorturl and read",
+			url:  "http://long-url.com",
+			defaultStructure: &innerStructure{
+				strGen: &testcommon.MockStrGen{},
+				store:  store,
+			},
+			want: testcommon.ResponseWant{
+				StatusCode: http.StatusTemporaryRedirect,
+				Headers:    map[string]string{"Location": "http://long-url.com"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			//Init
+			r := getRouter(tt.defaultStructure)
+
+			//Get short url
+			req := httptest.NewRequest(http.MethodPost, testHost.Host, strings.NewReader(tt.url))
+			req.Header.Set("Content-Type", "text/plain")
+			recorder := httptest.NewRecorder()
+			r.ServeHTTP(recorder, req)
+			res := recorder.Result()
+			resBody, err := io.ReadAll(res.Body)
+			res.Body.Close()
+
+			require.NoError(t, err)
+			require.Equal(t, http.StatusCreated, res.StatusCode)
+
+			shortURL := string(resBody)
+
+			//Resolve short url
+			req = httptest.NewRequest(http.MethodGet, shortURL, nil)
+			req.SetPathValue("url", testcommon.ShortHash)
+			recorder = httptest.NewRecorder()
+			r.ServeHTTP(recorder, req)
+			res = recorder.Result()
+			defer res.Body.Close()
+
+			testcommon.CheckResponseFields(t, res, tt.want)
+		})
+	}
+}
