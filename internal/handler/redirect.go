@@ -44,5 +44,6 @@ func (h *Handlers) GetURLsByUserId(w http.ResponseWriter, r *http.Request) {
 
 	response, _ := json.Marshal(urls)
 
-	shared.WriteResponse(w, response, http.StatusTemporaryRedirect)
+	w.Header().Set("Content-type", "application/json")
+	shared.WriteResponse(w, response, http.StatusOK)
 }

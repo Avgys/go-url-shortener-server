@@ -8,9 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/gocarina/gocsv"
+	"github.com/samber/lo"
 )
 
 var (
@@ -37,17 +39,20 @@ func NewFileStore(filename string) (*FileStore, error) {
 		}
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 
 	if err != nil {
 		err = fmt.Errorf("error opening store file, %w", err)
 		return nil, err
 	}
 
-	records := make([]*model.DBURL, 0)
+	var records []*model.DBURL
 
-	if err := gocsv.Unmarshal(file, &records); err != nil {
-		panic(err)
+	reader := csv.NewReader(file)
+
+	err = gocsv.UnmarshalCSV(reader, &records)
+	if err != nil && !errors.Is(gocsv.ErrEmptyCSVFile, err) {
+		return nil, err
 	}
 
 	writer := csv.NewWriter(file)
@@ -76,10 +81,7 @@ func (fs *FileStore) Close() error {
 	}
 
 	s := fs.getAll()
-
-	for _, v := range s {
-		fs.append(v)
-	}
+	fs.append(s)
 
 	fs.file.Sync()
 
@@ -93,13 +95,25 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 		return
 	}
 
-	for fullURL, shortURL := range input {
-		if err = fs.append(&model.DBURL{OriginalURL: fullURL, ShortURL: shortURL}); err != nil {
-			return
+	retryToInsert, alreadyExists, err = fs.store.StoreBatch(ctx, input, userID)
+
+	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (*model.DBURL, bool) {
+		if _, exists := alreadyExists[origin]; exists {
+			return nil, false
 		}
+
+		if lo.Contains(retryToInsert, origin) {
+			return nil, false
+		}
+
+		return &model.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
+	})
+
+	if err = fs.append(urlsToSave); err != nil {
+		return
 	}
 
-	return fs.store.StoreBatch(ctx, input, userID)
+	return retryToInsert, alreadyExists, err
 }
 
 func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
@@ -114,17 +128,17 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(record *model.DBURL) error {
-	pos, err := fs.file.Seek(0, io.SeekCurrent)
+func (fs *FileStore) append(records []*model.DBURL) error {
+	pos, err := fs.file.Seek(0, io.SeekEnd)
 
 	if err != nil {
 		return err
 	}
 
 	if pos == 0 {
-		err = gocsv.MarshalCSV(record, fs.appender)
+		err = gocsv.MarshalCSV(records, fs.appender)
 	} else {
-		err = gocsv.MarshalCSVWithoutHeaders(record, fs.appender)
+		err = gocsv.MarshalCSVWithoutHeaders(records, fs.appender)
 	}
 
 	return err
