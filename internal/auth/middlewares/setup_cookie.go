@@ -10,10 +10,13 @@ import (
 
 	"github.com/Avgys/go-url-shortener-server/internal/auth"
 	"github.com/Avgys/go-url-shortener-server/internal/auth/jwt_token"
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
 )
 
 func SetCookie(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		traceLogger := logger.Middleware(r.Context(), "SetCookie")
 
 		authCookie, err := r.Cookie(auth.AUTH_COOKIE)
 
@@ -33,10 +36,21 @@ func SetCookie(h http.Handler) http.Handler {
 		var tokenString string
 
 		if resetCookie {
-			userID, _ := rand.Int(rand.Reader, big.NewInt(23))
+			userID, _ := rand.Int(rand.Reader, big.NewInt(1<<23))
 			tokenString, claims, _ = jwt_token.NewTokenWithUserId(userID.Int64())
+
+			traceLogger.Info().
+				Str("Cookie", tokenString).
+				Bool("IsNewCookie", true).
+				Send()
+
 		} else {
 			tokenString = authCookie.Value
+
+			traceLogger.Info().
+				Str("Cookie", tokenString).
+				Bool("IsNewCookie", false).
+				Send()
 		}
 
 		authCtx := context.WithValue(r.Context(), auth.CLAIMS, claims)

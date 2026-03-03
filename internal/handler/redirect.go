@@ -42,8 +42,15 @@ func (h *Handlers) GetURLsByUserId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, _ := json.Marshal(urls)
+	var status int
+	var response []byte
+	if len(urls) == 0 {
+		status = http.StatusNoContent
+	} else {
+		response, _ = json.Marshal(urls)
+		status = http.StatusOK
+	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, response, http.StatusOK)
+	shared.WriteResponse(w, response, status)
 }
