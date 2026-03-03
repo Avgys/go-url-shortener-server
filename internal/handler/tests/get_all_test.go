@@ -74,7 +74,7 @@ func Test_handlers_GetAll(t *testing.T) {
 
 func requireAuthCookie(t *testing.T, res *http.Response) *http.Cookie {
 	for _, cookie := range res.Cookies() {
-		if cookie.Name == auth.AuthCookie {
+		if cookie.Name == string(auth.AuthCookie) {
 			return cookie
 		}
 	}

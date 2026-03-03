@@ -15,7 +15,7 @@ func RequireCookie(h http.Handler) http.Handler {
 
 		traceLogger := logger.Middleware(r.Context(), "RequireCookie")
 
-		authCookie, err := r.Cookie(auth.AuthCookie)
+		authCookie, err := r.Cookie(string(auth.AuthCookie))
 
 		if err == http.ErrNoCookie || authCookie == nil || authCookie.Value == "" {
 
@@ -40,7 +40,7 @@ func RequireCookie(h http.Handler) http.Handler {
 		}
 
 		// refresh cookie expire time
-		newCookie := &http.Cookie{Name: auth.AuthCookie, Value: authCookie.Value, Expires: time.Now().Add(jwttoken.TOKEN_EXP)}
+		newCookie := &http.Cookie{Name: string(auth.AuthCookie), Value: authCookie.Value, Expires: time.Now().Add(jwttoken.TokenExp)}
 
 		authCtx := context.WithValue(r.Context(), auth.Claims, claims)
 		r = r.WithContext(authCtx)

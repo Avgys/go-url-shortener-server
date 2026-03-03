@@ -18,7 +18,7 @@ func SetCookie(h http.Handler) http.Handler {
 
 		traceLogger := logger.Middleware(r.Context(), "SetCookie")
 
-		authCookie, err := r.Cookie(auth.AuthCookie)
+		authCookie, err := r.Cookie(string(auth.AuthCookie))
 
 		resetCookie := false
 		var claims *jwttoken.Claims
@@ -36,7 +36,7 @@ func SetCookie(h http.Handler) http.Handler {
 		var tokenString string
 
 		if resetCookie {
-			userID, _ := rand.Int(rand.Reader, big.NewInt(1<<23))
+			userID, _ := rand.Int(rand.Reader, big.NewInt(1<<62))
 			tokenString, claims, _ = jwttoken.NewTokenWithUserID(userID.Int64())
 
 			traceLogger.Info().
@@ -56,7 +56,7 @@ func SetCookie(h http.Handler) http.Handler {
 		authCtx := context.WithValue(r.Context(), auth.Claims, claims)
 		r = r.WithContext(authCtx)
 		// refresh cookie expire time
-		newCookie := &http.Cookie{Name: auth.AuthCookie, Value: tokenString, Expires: time.Now().Add(jwttoken.TOKEN_EXP)}
+		newCookie := &http.Cookie{Name: string(auth.AuthCookie), Value: tokenString, Expires: time.Now().Add(jwttoken.TokenExp)}
 		http.SetCookie(w, newCookie)
 
 		h.ServeHTTP(w, r)

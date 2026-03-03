@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const TOKEN_EXP = time.Hour * 3
+const TokenExp = time.Hour * 3
 
 var signMethod = jwt.SigningMethodHS256
 var secretKey = "SECRETTOKEN" //service.NewStringGenerator().GetRandomString(15)
@@ -21,7 +21,7 @@ func NewTokenWithUserID(userID int64) (string, *Claims, error) {
 
 	claims := Claims{
 		UserID:           userID,
-		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP))},
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenExp))},
 	}
 
 	token := jwt.NewWithClaims(signMethod, claims)
