@@ -26,9 +26,9 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
 }
 
-func (h *Handlers) GetURLsByUserId(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	traceLogger := logger.Endpoint(ctx, "GetURLsByUserId")
+	traceLogger := logger.Endpoint(ctx, "GetURLsByUserID")
 
 	claims, exist := getClaims(ctx)
 	if !exist {
@@ -36,7 +36,7 @@ func (h *Handlers) GetURLsByUserId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls, err := h.Shortifier.GetURLsByUserId(ctx, claims.UserID, traceLogger)
+	urls, err := h.Shortifier.GetURLsByUserID(ctx, claims.UserID, traceLogger)
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return

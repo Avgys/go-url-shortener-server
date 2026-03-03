@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/auth"
-	"github.com/Avgys/go-url-shortener-server/internal/auth/jwt_token"
+	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
@@ -55,11 +55,11 @@ func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog
 	return &resultURL, false
 }
 
-func getClaims(ctx context.Context) (*jwt_token.Claims, bool) {
-	claims, ok := ctx.Value(auth.CLAIMS).(*jwt_token.Claims)
+func getClaims(ctx context.Context) (*jwttoken.Claims, bool) {
+	claims, ok := ctx.Value(auth.Claims).(*jwttoken.Claims)
 
 	if !ok || claims == nil || claims.UserID == 0 {
-		return &jwt_token.Claims{}, false
+		return &jwttoken.Claims{}, false
 	}
 
 	return claims, true

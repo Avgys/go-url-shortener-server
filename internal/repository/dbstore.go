@@ -170,7 +170,7 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 	return
 }
 
-func (s *DBStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 	const queryTmp = `
 		SELECT short_url, long_url
 		FROM public.urls 

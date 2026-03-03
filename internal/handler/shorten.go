@@ -21,7 +21,7 @@ type Handlers struct {
 type Shortifier interface {
 	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
 	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (model.ShortenBatchResp, error)
-	GetURLsByUserId(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
+	GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
 }
 
 func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {

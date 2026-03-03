@@ -1,4 +1,4 @@
-package auth_middlewares
+package middlewares
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/auth"
-	"github.com/Avgys/go-url-shortener-server/internal/auth/jwt_token"
+	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 )
 
@@ -15,7 +15,7 @@ func RequireCookie(h http.Handler) http.Handler {
 
 		traceLogger := logger.Middleware(r.Context(), "RequireCookie")
 
-		authCookie, err := r.Cookie(auth.AUTH_COOKIE)
+		authCookie, err := r.Cookie(auth.AuthCookie)
 
 		if err == http.ErrNoCookie || authCookie == nil || authCookie.Value == "" {
 
@@ -27,7 +27,7 @@ func RequireCookie(h http.Handler) http.Handler {
 			return
 		}
 
-		claims, err := jwt_token.ParseToken(authCookie.Value)
+		claims, err := jwttoken.ParseToken(authCookie.Value)
 
 		if err != nil || claims == nil || claims.UserID == 0 {
 
@@ -40,9 +40,9 @@ func RequireCookie(h http.Handler) http.Handler {
 		}
 
 		// refresh cookie expire time
-		newCookie := &http.Cookie{Name: auth.AUTH_COOKIE, Value: authCookie.Value, Expires: time.Now().Add(jwt_token.TOKEN_EXP)}
+		newCookie := &http.Cookie{Name: auth.AuthCookie, Value: authCookie.Value, Expires: time.Now().Add(jwttoken.TOKEN_EXP)}
 
-		authCtx := context.WithValue(r.Context(), auth.CLAIMS, claims)
+		authCtx := context.WithValue(r.Context(), auth.Claims, claims)
 		r = r.WithContext(authCtx)
 
 		http.SetCookie(w, newCookie)

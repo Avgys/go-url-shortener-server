@@ -51,7 +51,7 @@ func NewFileStore(filename string) (*FileStore, error) {
 	reader := csv.NewReader(file)
 
 	err = gocsv.UnmarshalCSV(reader, &records)
-	if err != nil && !errors.Is(gocsv.ErrEmptyCSVFile, err) {
+	if err != nil && !errors.Is(err, gocsv.ErrEmptyCSVFile) {
 		return nil, err
 	}
 
@@ -96,6 +96,10 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 	}
 
 	retryToInsert, alreadyExists, err = fs.store.StoreBatch(ctx, input, userID)
+
+	if err != nil {
+		return
+	}
 
 	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (*model.DBURL, bool) {
 		if _, exists := alreadyExists[origin]; exists {
@@ -148,6 +152,6 @@ func (fs *FileStore) getAll() []*model.DBURL {
 	return fs.store.getAll()
 }
 
-func (s *FileStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
-	return s.store.GetURLsByUserId(ctx, userID)
+func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+	return fs.store.GetURLsByUserID(ctx, userID)
 }

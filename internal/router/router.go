@@ -31,7 +31,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 		})
 	})
 
-	r.With(auth_middlewares.SetCookie, auth_middlewares.RequireCookie).Get("/api/user/urls", h.GetURLsByUserId)
+	r.With(auth_middlewares.SetCookie, auth_middlewares.RequireCookie).Get("/api/user/urls", h.GetURLsByUserID)
 	r.Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
 

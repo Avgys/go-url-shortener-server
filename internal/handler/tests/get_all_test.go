@@ -52,7 +52,7 @@ func Test_handlers_GetAll(t *testing.T) {
 	res := recorder.Result()
 	defer res.Body.Close()
 
-	require.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
+	require.Equal(t, http.StatusOK, res.StatusCode)
 
 	var resp []model.URLPair
 	err := json.NewDecoder(res.Body).Decode(&resp)
@@ -74,7 +74,7 @@ func Test_handlers_GetAll(t *testing.T) {
 
 func requireAuthCookie(t *testing.T, res *http.Response) *http.Cookie {
 	for _, cookie := range res.Cookies() {
-		if cookie.Name == auth.AUTH_COOKIE {
+		if cookie.Name == auth.AuthCookie {
 			return cookie
 		}
 	}

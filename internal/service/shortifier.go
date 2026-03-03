@@ -142,9 +142,9 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, tr
 	return
 }
 
-func (s *Shortifier) GetURLsByUserId(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error) {
+func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error) {
 
-	dbURLs, err := s.store.GetURLsByUserId(ctx, userID)
+	dbURLs, err := s.store.GetURLsByUserID(ctx, userID)
 
 	if err != nil && errors.Is(err, repository.ErrNotFound) {
 		traceLogger.Info().

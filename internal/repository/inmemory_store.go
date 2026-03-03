@@ -91,7 +91,7 @@ func (s *InMemoryStore) getAll() []*model.DBURL {
 	return values
 }
 
-func (s *InMemoryStore) GetURLsByUserId(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 
 	values := lo.Values(s.storage)
 	values = lo.Filter(values, func(item *model.DBURL, _ int) bool { return item.UserID == userID })

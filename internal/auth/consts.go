@@ -1,4 +1,4 @@
 package auth
 
-const AUTH_COOKIE = "AUTH_COOKIE"
-const CLAIMS = "CLAIMS"
+const AuthCookie = "AUTH_COOKIE"
+const Claims = "CLAIMS"
