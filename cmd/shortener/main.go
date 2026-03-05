@@ -3,38 +3,48 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
+	stdlog "log"
+
+	"github.com/Avgys/go-url-shortener-server/cmd/server"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	"github.com/Avgys/go-url-shortener-server/internal/service/closer"
-	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	shutdownServerLimit = 5
+	shutdownLimit       = 10
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGKILL)
+	log.Println("bye-bye")
+}
+
+func run() error {
+
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGKILL, os.Interrupt)
 	defer stop()
-
-	aggCloser := closer.NewCloser()
 
 	log, close := logger.NewLogger()
 	defer close()
+
+	g, ctx := errgroup.WithContext(rootCtx)
 
 	*log = log.With().
 		Str("component", "initialize").
 		Logger()
 
-	srv, err := getServer(log, aggCloser)
+	srv, err := server.GetServer(ctx, log)
 
 	if err != nil {
 
@@ -45,82 +55,47 @@ func main() {
 		os.Exit(1)
 	}
 
-	errCh := make(chan error, 1)
+	context.AfterFunc(ctx, func() {
+		ctx, cancelCtx := context.WithTimeout(context.Background(), shutdownLimit)
+		defer cancelCtx()
 
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-	}()
+		<-ctx.Done()
+		stdlog.Fatal("failed to gracefully shutdown the service")
+	})
 
-	select {
-	case <-ctx.Done():
-		// graceful shutdown
-		shutCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		err = srv.Shutdown(shutCtx)
-
-		if err != nil {
-			log.Err(err).Send()
-		}
-
-		if err := aggCloser.Close(); err != nil {
-			log.Err(err).Send()
-		}
-
-		// close db, etc.
-		return // allow normal exit code 0
-	case err := <-errCh:
-		if err != nil {
-			// startup/runtime error -> exit non-zero
-
-			log.Err(err).Msg("server error:")
-
-			if err := aggCloser.Close(); err != nil {
-				log.Err(err).Send()
+	g.Go(func() (err error) {
+		defer func() {
+			errRec := recover()
+			if errRec != nil {
+				err = fmt.Errorf("a panic occurred: %v", errRec)
 			}
+		}()
 
-			os.Exit(1)
+		if err = srv.ListenAndServe(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return
+			}
+			return fmt.Errorf("listen and server has failed: %w", err)
 		}
-	}
-}
 
-func getServer(traceLogger *zerolog.Logger, aggCloser *closer.Closer) (*http.Server, error) {
+		return nil
+	})
 
-	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
+	g.Go(func() error {
+		defer log.Print("server has been shutdown")
+		<-ctx.Done()
 
-	if err != nil {
-		return nil, err
-	}
+		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
+		defer cancelShutdownTimeoutCtx()
+		if err := srv.Shutdown(shutdownTimeoutCtx); err != nil {
+			log.Printf("an error occurred during server shutdown: %v", err)
+		}
+		return nil
+	})
 
-	r, err := prepareRouter(cfg, aggCloser, traceLogger)
-
-	if err != nil {
-		return nil, err
-	}
-
-	srv := &http.Server{
-		Addr:    cfg.AppURL.Host,
-		Handler: r,
+	if err := g.Wait(); err != nil {
+		log.Err(err).Send()
 	}
 
-	return srv, nil
-}
-
-func prepareRouter(cfg *config.Config, aggCloser *closer.Closer, traceLogger *zerolog.Logger) (*chi.Mux, error) {
-
-	store, err := repository.NewRepository(context.Background(), cfg)
-	aggCloser.Add(store)
-
-	if err != nil {
-		traceLogger.Err(err).Msg("error initializing repository")
-		return nil, err
-	}
-
-	generator := service.NewStringGenerator()
-	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
-	h := handler.NewHandlers(shortifier, store)
-
-	return router.NewRouter(h), nil
+	return err
 }

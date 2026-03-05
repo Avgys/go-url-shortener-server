@@ -13,7 +13,7 @@ type storage map[string]*model.DBURL
 
 type InMemoryStore struct {
 	storage storage
-	mux     sync.Mutex
+	mux     sync.RWMutex
 }
 
 func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
@@ -25,8 +25,8 @@ func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
 }
 
 func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	alreadyExists = make(map[string]string)
 	retryToInsert = make([]string, 0)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,21 +23,34 @@ type DB struct {
 	Pool *pgxpool.Pool
 }
 
+const (
+	initTimeout = 30
+)
+
 func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 
 	if cfg.ConnectionString == "" {
 		return nil, errors.New("empty connection string")
 	}
 
-	pool, err := initPool(ctx, cfg)
+	initCtx, cancel := context.WithTimeout(ctx, initTimeout*time.Second)
+	defer cancel()
 
-	if err := runMigrations(ctx, cfg); err != nil {
+	pool, err := initPool(initCtx, cfg)
+
+	if err := runMigrations(initCtx, cfg); err != nil {
 		return nil, err
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize a connection pool: %w", err)
 	}
+
+	go func() {
+		<-ctx.Done()
+
+		pool.Close()
+	}()
 
 	return &DB{Pool: pool}, nil
 }

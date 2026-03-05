@@ -6,6 +6,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
+	"github.com/rs/zerolog"
 )
 
 type Full2ShortBatch map[string]string
@@ -18,14 +19,14 @@ type Repository interface {
 	Close() error
 }
 
-func NewRepository(ctx context.Context, cfg *config.Config) (Repository, error) {
+func NewRepository(ctx context.Context, cfg *config.Config, logger *zerolog.Logger) (Repository, error) {
 
 	if cfg.DBConnectionString != "" {
-		return NewDBStore(ctx, &db.Config{ConnectionString: cfg.DBConnectionString})
+		return NewDBStore(ctx, &db.Config{ConnectionString: cfg.DBConnectionString}, logger)
 	}
 
 	if cfg.FileStoragePath != "" {
-		return NewFileStore(cfg.FileStoragePath)
+		return NewFileStore(ctx, cfg.FileStoragePath, logger)
 	}
 
 	return NewInMemoryStore(nil), nil

@@ -15,6 +15,12 @@ const jsonType = "application/json"
 func NewRouter(h *handler.Handlers) *chi.Mux {
 
 	r := chi.NewRouter()
+	setEndpoints(r, h)
+
+	return r
+}
+
+func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
 	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
 
@@ -34,6 +40,4 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 	r.With(auth_middlewares.SetCookie, auth_middlewares.RequireCookie).Get("/api/user/urls", h.GetURLsByUserID)
 	r.Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
-
-	return r
 }

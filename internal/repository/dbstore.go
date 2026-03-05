@@ -10,6 +10,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 )
 
@@ -19,7 +20,7 @@ type DBStore struct {
 
 const dbOpTimeout = 1 * time.Second
 
-func NewDBStore(ctx context.Context, dbConfig *db.Config) (*DBStore, error) {
+func NewDBStore(ctx context.Context, dbConfig *db.Config, logger *zerolog.Logger) (*DBStore, error) {
 	dbConnection, err := db.NewDB(ctx, dbConfig)
 
 	if err != nil {

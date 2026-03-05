@@ -40,7 +40,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 		_, _ = dbConn.Pool.Exec(ctx, "TRUNCATE TABLE urls")
 	}()
 
-	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn})
+	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = store.Close() })
 
