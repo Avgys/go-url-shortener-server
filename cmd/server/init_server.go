@@ -47,7 +47,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 	}
 
 	generator := service.NewStringGenerator()
-	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
+	shortifier := service.NewShortifier(done, generator, store, &cfg.RedirectDomain)
 	h := handler.NewHandlers(shortifier, store)
 
 	return h, nil

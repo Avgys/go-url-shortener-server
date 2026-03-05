@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -13,29 +14,40 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, bool) {
+func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, error) {
 	body, err := shared.GetRequestBody(w, r)
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return nil, true
+		return nil, err
 	}
 
-	return body, false
+	return body, nil
 }
 
-func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.IndexedShortURL, bool) {
+func getJsonBody(r *http.Request, value any, traceLogger *zerolog.Logger) error {
+
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(value)
+
+	if errors.As(err, &json.SyntaxError{}) {
+		err = shared.NewError(err.Error(), http.StatusBadRequest)
+	}
+
+	return err
+}
+
+func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.Request) (*model.IndexedShortURL, error) {
 	batch := model.ShortenBatchReq{model.IndexedFullURL{FullURL: url}}
-	urls, shouldReturn := shortenBatch(h, batch, traceLogger, w, r)
+	urls, err := shortenBatch(h, batch, traceLogger, r)
 
-	if shouldReturn {
-		return nil, true
+	if err != nil {
+		return nil, err
 	}
 
-	return &(*urls)[0], false
+	return &(*urls)[0], nil
 }
 
-func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, w http.ResponseWriter, r *http.Request) (*model.ShortenBatchResp, bool) {
+func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*model.ShortenBatchResp, error) {
 
 	ctx := r.Context()
 	claims, _ := getClaims(ctx)
@@ -48,19 +60,18 @@ func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog
 			err = shared.NewError(err.Error(), http.StatusTooManyRequests)
 		}
 
-		shared.WriteError(w, r, err, traceLogger)
-		return nil, true
+		return nil, err
 	}
 
-	return &resultURL, false
+	return &resultURL, nil
 }
 
-func getClaims(ctx context.Context) (*jwttoken.Claims, bool) {
+func getClaims(ctx context.Context) (*jwttoken.Claims, error) {
 	claims, ok := ctx.Value(auth.Claims).(*jwttoken.Claims)
 
 	if !ok || claims == nil || claims.UserID == 0 {
-		return &jwttoken.Claims{}, false
+		return &jwttoken.Claims{}, errors.New("wrong auth token")
 	}
 
-	return claims, true
+	return claims, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
@@ -30,9 +31,9 @@ func NewDBStore(ctx context.Context, dbConfig *db.Config, logger *zerolog.Logger
 	return &DBStore{db: dbConnection}, nil
 }
 
-func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
+func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
 	const queryTmp = `
-		SELECT id, short_url, long_url, created_at
+		SELECT id, short_url, long_url, created_at, deleted_at_utc
 		FROM public.urls 
 		WHERE short_url = $1`
 
@@ -43,17 +44,17 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (string,
 
 	var dbVal model.DBURL
 
-	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt)
+	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt, &dbVal.DeleteAtUTC)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrNotFound
+			return nil, ErrNotFound
 		}
 
-		return "", fmt.Errorf("failed to scan a response row: %w", err)
+		return nil, fmt.Errorf("failed to scan a response row: %w", err)
 	}
 
-	return dbVal.OriginalURL, nil
+	return &dbVal, nil
 }
 
 func (s *DBStore) TestConnection(ctx context.Context) error {
@@ -175,7 +176,7 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 	const queryTmp = `
 		SELECT short_url, long_url
 		FROM public.urls 
-		WHERE user_id = $1`
+		WHERE user_id = $1 and deleted_at_utc is NULL`
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
 	defer cancel()
@@ -210,4 +211,45 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 	})
 
 	return result, nil
+}
+
+func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]string) error {
+
+	const queryTmp = `
+		update urls 
+		set deleted_at_utc = $1
+		where `
+
+	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString(queryTmp)
+
+	args := make([]any, 0, len(groupedByUser)*2)
+	conditions := make([]string, 0, len(groupedByUser))
+
+	args = append(args, time.Now().UTC())
+
+	i := 0
+	for k, v := range groupedByUser {
+		i = i + 2
+
+		conditions = append(conditions, fmt.Sprintf("$%d = user_id and short_url = ANY($%d::text[])", i, i+1))
+		args = append(args, k, pq.Array(v))
+	}
+
+	joinedConditions := strings.Join(conditions, " OR ")
+
+	queryBuilder.WriteString(joinedConditions)
+
+	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
+	defer cancel()
+
+	query := queryBuilder.String()
+
+	_, err := s.db.Pool.Exec(ctxTimeout, query, args...)
+
+	if err != nil {
+		return fmt.Errorf("rows error: %w", err)
+	}
+
+	return nil
 }

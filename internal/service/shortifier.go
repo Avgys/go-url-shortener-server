@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
@@ -34,11 +35,19 @@ type StringGenerator interface {
 	GetRandomString(n int) string
 }
 
+type deleteMessage struct {
+	shortURLs []string
+	userID    int64
+}
+
 type Shortifier struct {
 	domain          string
 	store           repository.Repository
 	stringGenerator StringGenerator
 	redirectAddr    *flagvalues.NetAddress
+
+	done        context.Context
+	deleteQueue chan *deleteMessage
 }
 
 type storeInfo struct {
@@ -46,11 +55,22 @@ type storeInfo struct {
 	new      bool
 }
 
-func NewShortifier(stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) *Shortifier {
-	return &Shortifier{stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
+func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) *Shortifier {
+
+	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
+
+	s.deleteQueue = make(chan *deleteMessage, 50)
+	s.startDeleteCoroutine()
+
+	go func() {
+		<-done.Done()
+		close(s.deleteQueue)
+	}()
+
+	return s
 }
 
-func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (string, error) {
+func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*model.DBURL, error) {
 
 	shortURL := strings.TrimSpace(inputURL)
 
@@ -62,6 +82,10 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 			Msg("url not found in repository")
 
 		return url, httpShared.NewError("url not found", http.StatusNotFound)
+	}
+
+	if url.DeleteAtUTC != nil {
+		return nil, httpShared.NewError("link deleted", http.StatusGone)
 	}
 
 	return url, err
@@ -160,4 +184,56 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 	})
 
 	return urls, err
+}
+
+func (s *Shortifier) startDeleteCoroutine() {
+
+	go func() {
+
+		queueForDelete := make([]*deleteMessage, 50)
+		ticker := time.NewTicker(5 * time.Second)
+
+		for {
+			select {
+			case <-s.done.Done():
+				s.deleteBatchFromDB(queueForDelete)
+				clear(queueForDelete)
+			case <-ticker.C:
+				s.deleteBatchFromDB(queueForDelete)
+				clear(queueForDelete)
+			case message := <-s.deleteQueue:
+				queueForDelete = append(queueForDelete, message)
+
+				if len(queueForDelete) < 50 {
+					continue
+				}
+
+				s.deleteBatchFromDB(queueForDelete)
+				clear(queueForDelete)
+			}
+		}
+	}()
+
+}
+
+func (s *Shortifier) deleteBatchFromDB(queueDelete []*deleteMessage) error {
+
+	t := lo.Filter(queueDelete, func(m *deleteMessage, _ int) bool {
+		return m != nil
+	})
+
+	if len(t) == 0 {
+		return nil
+	}
+
+	groupedByUser := lo.SliceToMap(t, func(m *deleteMessage) (int64, []string) { return m.userID, m.shortURLs })
+	return s.store.DeleteURLS(context.Background(), groupedByUser)
+}
+
+func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
+	go func() {
+		s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}
+	}()
+
+	return nil
 }

@@ -19,9 +19,10 @@ type Handlers struct {
 }
 
 type Shortifier interface {
-	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (string, error)
+	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (*model.DBURL, error)
 	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (model.ShortenBatchResp, error)
 	GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
+	DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error
 }
 
 func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
@@ -33,15 +34,18 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.Endpoint(ctx, "ShortifyURL")
 
-	body, shouldReturn := getBody(w, r, traceLogger)
-	if shouldReturn {
+	body, err := getBody(w, r, traceLogger)
+	if err != nil {
+		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 
 	url := string(body)
 
-	resultURL, shouldReturn := getShortURL(h, url, traceLogger, w, r)
-	if shouldReturn {
+	resultURL, err := getShortURL(h, url, traceLogger, r)
+
+	if err != nil {
+		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 
@@ -59,20 +63,16 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
-	traceLogger := logger.Endpoint(r.Context(), "ShortenURL")
+	ctx := r.Context()
+
+	traceLogger := logger.Endpoint(ctx, "ShortenURL")
 
 	var reqModel model.ShortenReq
+	getJsonBody(r, &reqModel, traceLogger)
 
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&reqModel)
-
+	resultURL, err := getShortURL(h, reqModel.URL, traceLogger, r)
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
-		return
-	}
-
-	resultURL, shouldReturn := getShortURL(h, reqModel.URL, traceLogger, w, r)
-	if shouldReturn {
 		return
 	}
 
@@ -109,8 +109,10 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortenBatch, shouldReturn := shortenBatch(h, reqModel, traceLogger, w, r)
-	if shouldReturn {
+	shortenBatch, err := shortenBatch(h, reqModel, traceLogger, r)
+
+	if err != nil {
+		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 

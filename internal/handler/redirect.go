@@ -15,14 +15,14 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	traceLogger := logger.Endpoint(ctx, "Redirect")
 
 	url := chi.URLParam(r, "url")
-	url, err := h.Shortifier.ResolveShortURL(ctx, url, traceLogger)
+	dbURL, err := h.Shortifier.ResolveShortURL(ctx, url, traceLogger)
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 
-	w.Header().Set("Location", url)
+	w.Header().Set("Location", dbURL.OriginalURL)
 	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
 }
 
@@ -30,8 +30,8 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.Endpoint(ctx, "GetURLsByUserID")
 
-	claims, exist := getClaims(ctx)
-	if !exist {
+	claims, err := getClaims(ctx)
+	if err != nil {
 		shared.WriteResponse(w, nil, http.StatusUnauthorized)
 		return
 	}
