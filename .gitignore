@@ -24,6 +24,7 @@ vendor/
 .vscode
 
 *.csv
+*.json
 
 /bin/
 payload.json.gz
