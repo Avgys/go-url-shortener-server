@@ -24,7 +24,7 @@ type DB struct {
 }
 
 const (
-	initTimeout = 30
+	initTimeout = 30 * time.Second
 )
 
 func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
@@ -33,7 +33,7 @@ func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 		return nil, errors.New("empty connection string")
 	}
 
-	initCtx, cancel := context.WithTimeout(ctx, initTimeout*time.Second)
+	initCtx, cancel := context.WithTimeout(ctx, initTimeout)
 	defer cancel()
 
 	pool, err := initPool(initCtx, cfg)

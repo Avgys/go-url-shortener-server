@@ -10,7 +10,7 @@ import (
 const TokenExp = time.Hour * 3
 
 var signMethod = jwt.SigningMethodHS256
-var secretKey = "SECRETTOKEN" //service.NewStringGenerator().GetRandomString(15)
+var secretKey = "SECRETTOKEN"
 
 type Claims struct {
 	jwt.RegisteredClaims

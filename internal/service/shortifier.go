@@ -72,10 +72,7 @@ func NewShortifier(done context.Context, stringGenerator StringGenerator, store 
 
 	go func() {
 
-		select {
-		case <-done.Done():
-		case <-c.Done():
-		}
+		<-c.Done()
 
 		close(s.deleteQueue)
 
@@ -218,9 +215,6 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 
 		for {
 			select {
-			case <-s.done.Done():
-				isLastDelete = true
-				return
 			case <-ctx.Done():
 				isLastDelete = true
 			case <-ticker.C:
@@ -271,9 +265,13 @@ func (s *Shortifier) deleteBatchFromDB(g *errgroup.Group, queueDelete []*deleteM
 }
 
 func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
-	go func() {
+
+	select {
+	case <-s.done.Done():
+		return nil
+	default:
 		s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}
-	}()
+	}
 
 	return nil
 }

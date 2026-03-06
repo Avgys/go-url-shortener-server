@@ -59,7 +59,6 @@ func WithLogging(h http.Handler) http.Handler {
 			Dur("Excecution time", executionTime).
 			Int("Response size", wrappedWriter.logData.responseSize).
 			Int("Response status code", wrappedWriter.logData.statusCode).
-			// Str("Cookies", formatCookies(wrappedWriter.innerWriter.Cookies())).
 			Msg("Request processed")
 	})
 }
