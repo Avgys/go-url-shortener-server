@@ -68,7 +68,11 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	traceLogger := logger.Endpoint(ctx, "ShortenURL")
 
 	var reqModel model.ShortenReq
-	getJSONBody(r, &reqModel)
+
+	if err := getJSONBody(r, &reqModel); err != nil {
+		shared.WriteError(w, r, err, traceLogger)
+		return
+	}
 
 	resultURL, err := getShortURL(h, reqModel.URL, traceLogger, r)
 	if err != nil {

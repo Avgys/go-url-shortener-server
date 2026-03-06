@@ -106,26 +106,36 @@ func clearFile(file *os.File) error {
 
 func (fs *FileStore) Close() error {
 
+	var err error = nil
+
 	fs.closeOnce.Do(func() {
 
-		if err := clearFile(fs.file); err != nil {
+		fs.isClosed.Store(true)
+
+		if err = clearFile(fs.file); err != nil {
 			fs.logger.Err(err).Send()
 			return
 		}
 
 		s := fs.getAll()
-		fs.append(s)
 
-		fs.file.Sync()
-		fs.isClosed.Store(true)
+		if err = fs.append(s); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
 
-		if err := fs.file.Close(); err != nil {
+		if err = fs.file.Sync(); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
+
+		if err = fs.file.Close(); err != nil {
 			fs.logger.Err(err).Send()
 			return
 		}
 	})
 
-	return nil
+	return err
 }
 
 func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
@@ -203,7 +213,9 @@ func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64
 		return nil, err
 	}
 
-	fs.append(deleted)
+	if err = fs.append(deleted); err != nil {
+		return nil, err
+	}
 
 	return deleted, err
 }

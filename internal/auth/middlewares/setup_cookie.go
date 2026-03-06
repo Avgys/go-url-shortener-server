@@ -36,8 +36,25 @@ func SetCookie(h http.Handler) http.Handler {
 		var tokenString string
 
 		if resetCookie {
-			userID, _ := rand.Int(rand.Reader, big.NewInt(1<<62))
-			tokenString, claims, _ = jwttoken.NewTokenWithUserID(userID.Int64())
+			userID, err := rand.Int(rand.Reader, big.NewInt(1<<62))
+
+			if err != nil {
+				traceLogger.Error().Err(err).Msg("failed to generate random userID for auth cookie")
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			tokenString, claims, err = jwttoken.NewTokenWithUserID(userID.Int64())
+
+			if err != nil || claims == nil || tokenString == "" {
+				if err != nil {
+					traceLogger.Error().Err(err).Msg("failed to create JWT token for auth cookie")
+				} else {
+					traceLogger.Error().Msg("generated invalid JWT token or claims for auth cookie")
+				}
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 
 			traceLogger.Info().
 				Bool("IsNewCookie", true).

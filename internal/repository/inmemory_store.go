@@ -36,7 +36,7 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 	var maxID = 0
 
 	if maxURLID != nil {
-		maxID = maxURLID.ID
+		maxID = maxURLID.ID + 1
 	}
 
 	for originURL, shortURL := range input {
@@ -88,16 +88,28 @@ func (s *InMemoryStore) Close() error {
 }
 
 func (s *InMemoryStore) getAll() []*model.DBURL {
+	defer s.mux.RUnlock()
+	s.mux.RLock()
+
 	values := lo.Values(s.shortURLToModel)
 	return values
 }
 
 func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 
-	values := lo.Values(s.shortURLToModel)
-	values = lo.Filter(values, func(item *model.DBURL, _ int) bool { return item.UserID == userID })
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	result := make([]*model.DBURL, 0)
 
-	return values, nil
+	for _, v := range s.shortURLToModel {
+
+		if v.UserID == userID {
+
+			result = append(result, v)
+		}
+	}
+
+	return result, nil
 }
 
 func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
@@ -111,7 +123,11 @@ func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[in
 
 	for userID, urls := range groupedByUser {
 		for _, url := range urls {
-			dbURL := s.shortURLToModel[url]
+			dbURL, ok := s.shortURLToModel[url]
+
+			if !ok {
+				continue
+			}
 
 			if dbURL.UserID == userID {
 				dbURL.DeletedAtUTC = &utcNow

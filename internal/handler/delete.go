@@ -19,9 +19,7 @@ func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 
 	var urls []string
 
-	err = getJSONBody(r, &urls)
-
-	if err != nil {
+	if err = getJSONBody(r, &urls); err != nil {
 		shared.WriteError(w, r, err, traceLogger)
 		return
 	}

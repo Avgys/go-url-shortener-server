@@ -23,6 +23,10 @@ func GetServer(done context.Context, traceLogger *zerolog.Logger) (*http.Server,
 
 	h, err := prepareDI(done, cfg, traceLogger)
 
+	if err != nil {
+		return nil, err
+	}
+
 	r := router.NewRouter(h)
 
 	if err != nil {

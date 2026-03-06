@@ -192,6 +192,8 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 	}
 
 	urls := make([]*model.DBURL, 0)
+
+	defer rows.Close()
 	for rows.Next() {
 		var dbURL model.DBURL
 
@@ -204,6 +206,10 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 		}
 
 		urls = append(urls, &dbURL)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
 	return urls, nil
@@ -253,6 +259,8 @@ func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]stri
 	}
 
 	urls := make([]*model.DBURL, 0)
+
+	defer rows.Close()
 	for rows.Next() {
 		var dbURL model.DBURL
 
@@ -265,6 +273,10 @@ func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]stri
 		}
 
 		urls = append(urls, &dbURL)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
 	return urls, nil

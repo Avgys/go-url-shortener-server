@@ -92,12 +92,20 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 
 	url, err := s.store.ResolveShortURL(ctx, shortURL)
 
-	if err != nil && errors.Is(err, repository.ErrNotFound) {
-		traceLogger.Info().
-			Str("repository error", err.Error()).
-			Msg("url not found in repository")
+	if err != nil {
 
-		return url, httpShared.NewError("url not found", http.StatusNotFound)
+		if errors.Is(err, repository.ErrNotFound) {
+			traceLogger.Info().
+				Str("repository error", err.Error()).
+				Msg("url not found in repository")
+
+			return url, httpShared.NewError("url not found", http.StatusNotFound)
+		}
+
+		traceLogger.Err(err).
+			Send()
+
+		return nil, err
 	}
 
 	if url.DeletedAtUTC != nil {
@@ -210,6 +218,7 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 
 		queueForDelete := make([]*deleteMessage, 0)
 		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 
 		isLastDelete := false
 
@@ -218,10 +227,14 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 			case <-ctx.Done():
 				isLastDelete = true
 			case <-ticker.C:
-			case message := <-s.deleteQueue:
-				queueForDelete = append(queueForDelete, message)
+			case message, ok := <-s.deleteQueue:
+				if ok {
+					queueForDelete = append(queueForDelete, message)
+				} else {
+					isLastDelete = true
+				}
 
-				if len(queueForDelete) < 200 {
+				if len(queueForDelete) < 200 && !isLastDelete {
 					continue
 				}
 			}
