@@ -9,8 +9,11 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/Avgys/go-url-shortener-server/internal/auth"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
@@ -417,5 +420,162 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 
 		require.Equal(t, http.StatusTemporaryRedirect, resolveRes.StatusCode)
 		require.Equal(t, original, resolveRes.Header.Get("Location"))
+	}
+}
+
+func Test_handlers_ShortenDeleteRead(t *testing.T) {
+	host := "http://localhost:8080"
+	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
+	deletePath, _ := url.JoinPath(host, "api", "user", "urls")
+
+	const workerCount = 20
+	const urlsPerWorker = 3
+
+	getAuthCookie := func(res *http.Response) (*http.Cookie, error) {
+		for _, cookie := range res.Cookies() {
+			if cookie.Name == string(auth.AuthCookie) {
+				return cookie, nil
+			}
+		}
+		return nil, fmt.Errorf("auth cookie is not set")
+	}
+
+	waitForGone := func(r http.Handler, shortURL string, shortKey string) error {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			resolveReq := httptest.NewRequest(http.MethodGet, shortURL, nil)
+			resolveReq.SetPathValue("url", shortKey)
+			resolveRecorder := httptest.NewRecorder()
+			r.ServeHTTP(resolveRecorder, resolveReq)
+			resolveRes := resolveRecorder.Result()
+			resolveRes.Body.Close()
+
+			if resolveRes.StatusCode == http.StatusGone {
+				return nil
+			}
+
+			if time.Now().After(deadline) {
+				return fmt.Errorf("expected %d, got %d", http.StatusGone, resolveRes.StatusCode)
+			}
+
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, workerCount)
+
+	for i := 0; i < workerCount; i++ {
+		idx := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			shortValues := []string{
+				fmt.Sprintf("s-%d-1", idx),
+				fmt.Sprintf("s-%d-2", idx),
+				fmt.Sprintf("s-%d-3", idx),
+			}
+
+			payload := model.ShortenBatchReq{
+				{CorrelationID: "1", FullURL: fmt.Sprintf("http://long-url-%d-1.com", idx)},
+				{CorrelationID: "2", FullURL: fmt.Sprintf("http://long-url-%d-2.com", idx)},
+				{CorrelationID: "3", FullURL: fmt.Sprintf("http://long-url-%d-3.com", idx)},
+			}
+
+			jsonBody, err := json.Marshal(payload)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
+			req.Header.Set("Content-Type", "application/json")
+
+			recorder := httptest.NewRecorder()
+			r := getRouter(&innerStructure{
+				strGen: &mockStrGenSequence{values: shortValues},
+			})
+
+			r.ServeHTTP(recorder, req)
+			res := recorder.Result()
+			defer res.Body.Close()
+
+			if res.StatusCode != http.StatusCreated {
+				errCh <- fmt.Errorf("unexpected status %d", res.StatusCode)
+				return
+			}
+
+			authCookie, err := getAuthCookie(res)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			var batchResp model.ShortenBatchResp
+			if err := json.NewDecoder(res.Body).Decode(&batchResp); err != nil {
+				errCh <- err
+				return
+			}
+
+			if len(batchResp) != urlsPerWorker {
+				errCh <- fmt.Errorf("expected %d urls, got %d", urlsPerWorker, len(batchResp))
+				return
+			}
+
+			deleteKeys := make([]string, 0, urlsPerWorker)
+			shortRefs := make([]struct {
+				shortURL string
+				shortKey string
+			}, 0, urlsPerWorker)
+
+			for _, item := range batchResp {
+				parsed, err := url.Parse(item.ShortURL)
+				if err != nil {
+					errCh <- err
+					return
+				}
+
+				shortKey := strings.TrimPrefix(parsed.Path, "/")
+				deleteKeys = append(deleteKeys, shortKey)
+				shortRefs = append(shortRefs, struct {
+					shortURL string
+					shortKey string
+				}{shortURL: item.ShortURL, shortKey: shortKey})
+			}
+
+			deleteBody, err := json.Marshal(deleteKeys)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			deleteReq := httptest.NewRequest(http.MethodDelete, deletePath, bytes.NewReader(deleteBody))
+			deleteReq.Header.Set("Content-Type", "application/json")
+			deleteReq.AddCookie(authCookie)
+			deleteRecorder := httptest.NewRecorder()
+			r.ServeHTTP(deleteRecorder, deleteReq)
+			deleteRes := deleteRecorder.Result()
+			deleteRes.Body.Close()
+
+			if deleteRes.StatusCode != http.StatusAccepted {
+				errCh <- fmt.Errorf("unexpected delete status %d", deleteRes.StatusCode)
+				return
+			}
+
+			for _, ref := range shortRefs {
+				if err := waitForGone(r, ref.shortURL, ref.shortKey); err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err)
 	}
 }
