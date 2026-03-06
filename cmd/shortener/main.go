@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Avgys/go-url-shortener-server/cmd/server"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
@@ -16,8 +17,8 @@ import (
 )
 
 const (
-	shutdownServerLimit = 5
-	shutdownLimit       = 10
+	shutdownServerLimit = 5 * time.Second
+	shutdownLimit       = 10 * time.Second
 )
 
 func main() {
@@ -30,37 +31,41 @@ func main() {
 
 func run() error {
 
-	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGKILL, os.Interrupt)
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	defer stop()
 
-	log, close := logger.NewLogger()
-	defer close()
-
-	g, ctx := errgroup.WithContext(rootCtx)
+	log, closeLogger := logger.NewLogger()
+	defer closeLogger()
 
 	*log = log.With().
 		Str("component", "initialize").
 		Logger()
 
+	g, ctx := errgroup.WithContext(rootCtx)
+
 	srv, err := server.GetServer(ctx, log)
 
 	if err != nil {
-
-		log.Error().
-			Err(err).
-			Send()
-
-		os.Exit(1)
+		return err
 	}
 
-	context.AfterFunc(ctx, func() {
-		ctx, cancelCtx := context.WithTimeout(context.Background(), shutdownLimit)
-		defer cancelCtx()
+	shutdownDone := make(chan struct{})
 
+	// Enforce app shutdown
+	go func() {
 		<-ctx.Done()
-		stdlog.Fatal("failed to gracefully shutdown the service")
-	})
+		timer := time.NewTimer(shutdownLimit)
+		defer timer.Stop()
 
+		select {
+		case <-shutdownDone:
+			return
+		case <-timer.C:
+			stdlog.Fatal("failed to gracefully shutdown the service")
+		}
+	}()
+
+	// start server
 	g.Go(func() (err error) {
 		defer func() {
 			errRec := recover()
@@ -69,31 +74,37 @@ func run() error {
 			}
 		}()
 
-		if err = srv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
-				return
+				return nil
 			}
 			return fmt.Errorf("listen and server has failed: %w", err)
 		}
 
-		return nil
+		return err
 	})
 
+	// graceful shutdown
 	g.Go(func() error {
 		defer log.Print("server has been shutdown")
+
 		<-ctx.Done()
+		defer close(shutdownDone)
 
 		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
 		defer cancelShutdownTimeoutCtx()
+
 		if err := srv.Shutdown(shutdownTimeoutCtx); err != nil {
 			log.Printf("an error occurred during server shutdown: %v", err)
 		}
-		return nil
+
+		return err
 	})
 
 	if err := g.Wait(); err != nil {
 		log.Err(err).Send()
+		return err
 	}
 
-	return err
+	return nil
 }
