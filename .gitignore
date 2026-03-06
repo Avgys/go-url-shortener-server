@@ -23,9 +23,8 @@ vendor/
 .idea
 .vscode
 
-.csv
+*.csv
 
 /bin/
 payload.json.gz
 cmd/storage.json
-storage.csv
