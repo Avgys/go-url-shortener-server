@@ -1,1 +1,0 @@
-ALTER TABLE urls ADD COLUMN IF NOT EXISTS deleted_at_utc timestamp NULL;

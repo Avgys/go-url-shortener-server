@@ -158,9 +158,9 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 	return retryToInsert, alreadyExists, err
 }
 
-func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
+func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
 	if fs.isClosed {
-		return "", ErrFileClosed
+		return nil, ErrFileClosed
 	}
 
 	return fs.store.ResolveShortURL(ctx, shortURL)
@@ -192,4 +192,17 @@ func (fs *FileStore) getAll() []*model.DBURL {
 
 func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 	return fs.store.GetURLsByUserID(ctx, userID)
+}
+
+func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
+
+	deleted, err := fs.store.DeleteURLS(context, groupedByUser)
+
+	if err != nil {
+		return nil, err
+	}
+
+	fs.append(deleted)
+
+	return deleted, err
 }

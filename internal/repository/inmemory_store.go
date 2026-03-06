@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,14 +13,14 @@ import (
 type storage map[string]*model.DBURL
 
 type InMemoryStore struct {
-	storage storage
-	mux     sync.RWMutex
+	shortURLToModel storage
+	mux             sync.RWMutex
 }
 
 func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
 
 	mappedURLs := lo.Associate(initData, func(item *model.DBURL) (string, *model.DBURL) { return item.ShortURL, item })
-	s := &InMemoryStore{storage: mappedURLs}
+	s := &InMemoryStore{shortURLToModel: mappedURLs}
 
 	return s
 }
@@ -31,7 +32,7 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 	alreadyExists = make(map[string]string)
 	retryToInsert = make([]string, 0)
 
-	maxURLID := lo.MaxBy(lo.Values(s.storage), func(a *model.DBURL, b *model.DBURL) bool { return a.ID > b.ID })
+	maxURLID := lo.MaxBy(lo.Values(s.shortURLToModel), func(a *model.DBURL, b *model.DBURL) bool { return a.ID > b.ID })
 
 	var maxID = 0
 
@@ -41,22 +42,23 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 
 	for originURL, shortURL := range input {
 
-		if storedValue, isStored := s.storage[shortURL]; isStored && storedValue.OriginalURL != originURL {
+		if storedValue, isStored := s.shortURLToModel[shortURL]; isStored && storedValue.OriginalURL != originURL {
 			retryToInsert = append(retryToInsert, originURL)
 			continue
 		}
 
-		if value, ok := lo.FindKeyBy(s.storage, func(_ string, value *model.DBURL) bool { return value.OriginalURL == originURL }); ok {
+		if value, ok := lo.FindKeyBy(s.shortURLToModel, func(_ string, value *model.DBURL) bool { return value.OriginalURL == originURL }); ok {
 			alreadyExists[originURL] = value
 			continue
 		}
 
-		s.storage[shortURL] = &model.DBURL{
-			ShortURL:    shortURL,
-			OriginalURL: originURL,
-			UserID:      userID,
-			CreatedAt:   time.Now().UTC(),
-			ID:          maxID,
+		s.shortURLToModel[shortURL] = &model.DBURL{
+			ShortURL:     shortURL,
+			OriginalURL:  originURL,
+			UserID:       userID,
+			CreatedAt:    time.Now().UTC(),
+			ID:           maxID,
+			DeletedAtUTC: nil,
 		}
 
 		maxID++
@@ -65,17 +67,17 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 	return
 }
 
-func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
+func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	url, ok := s.storage[shortURL]
+	url, ok := s.shortURLToModel[shortURL]
 
 	if !ok {
-		return "", ErrNotFound
+		return nil, ErrNotFound
 	}
 
-	return url.OriginalURL, nil
+	return url, nil
 }
 
 func (s *InMemoryStore) TestConnection(ctx context.Context) error {
@@ -87,14 +89,39 @@ func (s *InMemoryStore) Close() error {
 }
 
 func (s *InMemoryStore) getAll() []*model.DBURL {
-	values := lo.Values(s.storage)
+	values := lo.Values(s.shortURLToModel)
 	return values
 }
 
 func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 
-	values := lo.Values(s.storage)
+	values := lo.Values(s.shortURLToModel)
 	values = lo.Filter(values, func(item *model.DBURL, _ int) bool { return item.UserID == userID })
 
 	return values, nil
+}
+
+func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	utcNow := time.Now().UTC()
+
+	recordUpdate := make([]*model.DBURL, 0)
+
+	for userID, urls := range groupedByUser {
+		for _, url := range urls {
+			dbURL := s.shortURLToModel[url]
+
+			if dbURL.UserID == userID {
+				dbURL.DeletedAtUTC = &utcNow
+				dbURL.OriginalURL = strings.Join([]string{"deleted", dbURL.OriginalURL}, "")
+
+				recordUpdate = append(recordUpdate, dbURL)
+			}
+		}
+	}
+
+	return recordUpdate, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -52,7 +53,7 @@ func getTestRouter() *httptest.Server {
 	store := repository.NewInMemoryStore(nil)
 	strGen := &testcommon.MockStrGen{}
 
-	shortifier := service.NewShortifier(strGen, store, &cfg.RedirectDomain)
+	shortifier := service.NewShortifier(context.Background(), strGen, store, &cfg.RedirectDomain)
 	h := &handler.Handlers{Shortifier: shortifier}
 
 	ts := httptest.NewServer(router.NewRouter(h))

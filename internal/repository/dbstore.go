@@ -44,7 +44,7 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.
 
 	var dbVal model.DBURL
 
-	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt, &dbVal.DeleteAtUTC)
+	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt, &dbVal.DeletedAtUTC)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -83,20 +83,20 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 			(
 			SELECT u.short_url
 			FROM urls u
-			WHERE u.long_url = i.long_url
+			WHERE u.long_url = i.long_url and deleted_at_utc is NULL
 			LIMIT 1
 			) AS stored_short_url,
 
 			-- can insert only if neither key exists
 			NOT EXISTS (
 			SELECT 1 FROM urls u
-			WHERE u.long_url = i.long_url OR u.short_url = i.short_url
+			WHERE (u.long_url = i.long_url OR u.short_url = i.short_url) and deleted_at_utc is NULL
 			) AS should_insert,
 
 			-- short_url collision: same short_url already used for a different long_url
 			EXISTS (
 			SELECT 1 FROM urls u
-			WHERE u.short_url = i.short_url AND u.long_url <> i.long_url
+			WHERE u.short_url = i.short_url AND u.long_url <> i.long_url and deleted_at_utc is NULL
 			) AS retry
 
 			FROM input i
@@ -174,9 +174,9 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 
 func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
 	const queryTmp = `
-		SELECT short_url, long_url
-		FROM public.urls 
-		WHERE user_id = $1 and deleted_at_utc is NULL`
+		SELECT id, short_url, long_url, created_at, user_id, deleted_at_utc
+		FROM urls 
+		WHERE user_id = $1`
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
 	defer cancel()
@@ -195,7 +195,7 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 	for rows.Next() {
 		var dbURL model.DBURL
 
-		if err = rows.Scan(&dbURL.ShortURL, &dbURL.OriginalURL); err != nil {
+		if err = rows.Scan(&dbURL.ID, &dbURL.ShortURL, &dbURL.OriginalURL, &dbURL.CreatedAt, &dbURL.UserID, &dbURL.DeletedAtUTC); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, ErrNotFound
 			}
@@ -206,14 +206,10 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 		urls = append(urls, &dbURL)
 	}
 
-	result := lo.Map(urls, func(dbPair *model.DBURL, _ int) *model.DBURL {
-		return &model.DBURL{OriginalURL: dbPair.OriginalURL, ShortURL: dbPair.ShortURL}
-	})
-
-	return result, nil
+	return urls, nil
 }
 
-func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]string) error {
+func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
 
 	const queryTmp = `
 		update urls 
@@ -239,17 +235,37 @@ func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]stri
 	joinedConditions := strings.Join(conditions, " OR ")
 
 	queryBuilder.WriteString(joinedConditions)
+	queryBuilder.WriteString(" RETURNING id, short_url, long_url, created_at, user_id, deleted_at_utc")
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
 	defer cancel()
 
 	query := queryBuilder.String()
 
-	_, err := s.db.Pool.Exec(ctxTimeout, query, args...)
+	rows, err := s.db.Pool.Query(ctxTimeout, query, args...)
 
 	if err != nil {
-		return fmt.Errorf("rows error: %w", err)
+		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	return nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	urls := make([]*model.DBURL, 0)
+	for rows.Next() {
+		var dbURL model.DBURL
+
+		if err = rows.Scan(&dbURL.ID, &dbURL.ShortURL, &dbURL.OriginalURL, &dbURL.CreatedAt, &dbURL.UserID, &dbURL.DeletedAtUTC); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrNotFound
+			}
+
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		urls = append(urls, &dbURL)
+	}
+
+	return urls, nil
 }

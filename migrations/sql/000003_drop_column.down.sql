@@ -1,1 +1,0 @@
-ALTER TABLE urls DROP COLUMN IF EXISTS deleted_at_utc;
