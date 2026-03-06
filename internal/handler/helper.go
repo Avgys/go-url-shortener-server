@@ -29,7 +29,9 @@ func getJsonBody(r *http.Request, value any, traceLogger *zerolog.Logger) error 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(value)
 
-	if errors.As(err, &json.SyntaxError{}) {
+	var syntaxErr json.SyntaxError
+
+	if errors.As(err, &syntaxErr) {
 		err = shared.NewError(err.Error(), http.StatusBadRequest)
 	}
 

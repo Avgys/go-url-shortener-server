@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -116,7 +115,6 @@ func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[in
 
 			if dbURL.UserID == userID {
 				dbURL.DeletedAtUTC = &utcNow
-				dbURL.OriginalURL = strings.Join([]string{"deleted", dbURL.OriginalURL}, "")
 
 				recordUpdate = append(recordUpdate, dbURL)
 			}

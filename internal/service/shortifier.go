@@ -212,7 +212,7 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 	go func() {
 
 		queueForDelete := make([]*deleteMessage, 0)
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(1 * time.Second)
 
 		isLastDelete := false
 
@@ -227,7 +227,7 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 			case message := <-s.deleteQueue:
 				queueForDelete = append(queueForDelete, message)
 
-				if len(queueForDelete) < 2 {
+				if len(queueForDelete) < 200 {
 					continue
 				}
 			}
@@ -250,18 +250,30 @@ func (s *Shortifier) deleteBatchFromDB(g *errgroup.Group, queueDelete []*deleteM
 	})
 
 	if len(t) > 0 {
-		groupedByUser := lo.SliceToMap(t, func(m *deleteMessage) (int64, []string) { return m.userID, m.shortURLs })
+
+		groupedByUser := make(map[int64][]string, 0)
+
+		for _, message := range queueDelete {
+			urls, exists := groupedByUser[message.userID]
+
+			if !exists {
+				groupedByUser[message.userID] = message.shortURLs
+			} else {
+				groupedByUser[message.userID] = append(urls, message.shortURLs...)
+			}
+		}
 
 		g.Go(func() error {
 			_, err := s.store.DeleteURLS(context.Background(), groupedByUser)
 			return err
 		})
 	}
-
 }
 
 func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
-	s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}
+	go func() {
+		s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}
+	}()
 
 	return nil
 }

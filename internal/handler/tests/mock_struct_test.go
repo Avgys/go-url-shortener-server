@@ -1,6 +1,8 @@
 package handler_test
 
 import (
+	"context"
+
 	"github.com/Avgys/go-url-shortener-server/internal/config"
 	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
@@ -39,7 +41,7 @@ func getRouter(testStructure *innerStructure) *chi.Mux {
 		testStructure.config, _ = config.GetConfig([]string{}, &zerolog.Logger{})
 	}
 
-	shortifier := service.NewShortifier(testStructure.strGen, testStructure.store, &testStructure.config.RedirectDomain)
+	shortifier := service.NewShortifier(context.Background(), testStructure.strGen, testStructure.store, &testStructure.config.RedirectDomain)
 
 	h := &handler.Handlers{
 		Shortifier: shortifier,
