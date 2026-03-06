@@ -29,10 +29,6 @@ func GetServer(done context.Context, traceLogger *zerolog.Logger) (*http.Server,
 
 	r := router.NewRouter(h)
 
-	if err != nil {
-		return nil, err
-	}
-
 	srv := &http.Server{
 		Addr:    cfg.AppURL.Host,
 		Handler: r,
