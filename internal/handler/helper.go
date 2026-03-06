@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger) ([]byte, error) {
+func getBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	body, err := shared.GetRequestBody(w, r)
 
 	if err != nil {
@@ -24,15 +24,17 @@ func getBody(w http.ResponseWriter, r *http.Request, traceLogger *zerolog.Logger
 	return body, nil
 }
 
-func getJsonBody(r *http.Request, value any, traceLogger *zerolog.Logger) error {
+func getJSONBody(r *http.Request, value any) error {
 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(value)
 
-	var syntaxErr json.SyntaxError
+	if err != nil {
+		var syntaxErr *json.SyntaxError
 
-	if errors.As(err, &syntaxErr) {
-		err = shared.NewError(err.Error(), http.StatusBadRequest)
+		if errors.As(err, &syntaxErr) {
+			err = shared.NewError(err.Error(), http.StatusBadRequest)
+		}
 	}
 
 	return err

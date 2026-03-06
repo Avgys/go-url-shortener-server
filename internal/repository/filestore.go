@@ -38,7 +38,7 @@ func NewFileStore(ctx context.Context, filename string, logger *zerolog.Logger) 
 		return nil, err
 	}
 
-	records, err := readRows(file, err)
+	records, err := readRows(file)
 
 	if err != nil {
 		return nil, err
@@ -58,12 +58,12 @@ func NewFileStore(ctx context.Context, filename string, logger *zerolog.Logger) 
 	return rep, nil
 }
 
-func readRows(file *os.File, err error) ([]*model.DBURL, error) {
+func readRows(file *os.File) ([]*model.DBURL, error) {
 	var records []*model.DBURL
 
 	reader := csv.NewReader(file)
 
-	err = gocsv.UnmarshalCSV(reader, &records)
+	err := gocsv.UnmarshalCSV(reader, &records)
 	if err != nil && !errors.Is(err, gocsv.ErrEmptyCSVFile) {
 		return nil, err
 	}

@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	stdlog "log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-
-	stdlog "log"
 
 	"github.com/Avgys/go-url-shortener-server/cmd/server"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
@@ -24,10 +22,10 @@ const (
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatal(err)
+		stdlog.Fatal(err)
 	}
 
-	log.Println("bye-bye")
+	stdlog.Println("bye-bye")
 }
 
 func run() error {
