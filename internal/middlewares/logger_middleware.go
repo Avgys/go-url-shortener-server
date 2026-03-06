@@ -44,7 +44,6 @@ func WithLogging(h http.Handler) http.Handler {
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Str("Content-type", r.Header.Get("Content-type")).
-			Str("Cookies", formatCookies(r.Cookies())).
 			Msg("Started processing")
 
 		wrappedWriter := wrapWriter(w)

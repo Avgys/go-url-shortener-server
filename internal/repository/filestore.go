@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
@@ -26,7 +27,7 @@ type FileStore struct {
 	file     *os.File
 	appender *gocsv.SafeCSVWriter
 	logger   *zerolog.Logger
-	isClosed bool
+	isClosed atomic.Bool
 
 	closeOnce sync.Once
 }
@@ -116,7 +117,7 @@ func (fs *FileStore) Close() error {
 		fs.append(s)
 
 		fs.file.Sync()
-		fs.isClosed = true
+		fs.isClosed.Store(true)
 
 		if err := fs.file.Close(); err != nil {
 			fs.logger.Err(err).Send()
@@ -128,7 +129,7 @@ func (fs *FileStore) Close() error {
 }
 
 func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
-	if fs.isClosed {
+	if fs.isClosed.Load() {
 		err = ErrFileClosed
 		return
 	}
@@ -159,7 +160,7 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 }
 
 func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
-	if fs.isClosed {
+	if fs.isClosed.Load() {
 		return nil, ErrFileClosed
 	}
 

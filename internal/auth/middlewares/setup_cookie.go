@@ -40,7 +40,6 @@ func SetCookie(h http.Handler) http.Handler {
 			tokenString, claims, _ = jwttoken.NewTokenWithUserID(userID.Int64())
 
 			traceLogger.Info().
-				Str("Cookie", tokenString).
 				Bool("IsNewCookie", true).
 				Send()
 
@@ -48,7 +47,6 @@ func SetCookie(h http.Handler) http.Handler {
 			tokenString = authCookie.Value
 
 			traceLogger.Info().
-				Str("Cookie", tokenString).
 				Bool("IsNewCookie", false).
 				Send()
 		}
@@ -56,7 +54,7 @@ func SetCookie(h http.Handler) http.Handler {
 		authCtx := context.WithValue(r.Context(), auth.Claims, claims)
 		r = r.WithContext(authCtx)
 		// refresh cookie expire time
-		newCookie := &http.Cookie{Name: string(auth.AuthCookie), Value: tokenString, Expires: time.Now().Add(jwttoken.TokenExp)}
+		newCookie := &http.Cookie{Name: string(auth.AuthCookie), Value: tokenString, Expires: time.Now().Add(jwttoken.TokenExp), HttpOnly: true}
 		http.SetCookie(w, newCookie)
 
 		h.ServeHTTP(w, r)

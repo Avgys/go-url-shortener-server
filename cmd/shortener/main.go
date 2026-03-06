@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdlog "log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/Avgys/go-url-shortener-server/cmd/server"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,20 +22,21 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
-		stdlog.Fatal(err)
-	}
-
-	stdlog.Println("bye-bye")
-}
-
-func run() error {
-
-	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	defer stop()
 
 	log, closeLogger := logger.NewLogger()
 	defer closeLogger()
+
+	if err := run(log); err != nil {
+		log.Fatal().Err(err).Send()
+	}
+
+	log.Println("bye-bye")
+}
+
+func run(log *zerolog.Logger) error {
+
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	defer stop()
 
 	*log = log.With().
 		Str("component", "initialize").
@@ -61,7 +62,7 @@ func run() error {
 		case <-shutdownDone:
 			return
 		case <-timer.C:
-			stdlog.Fatal("failed to gracefully shutdown the service")
+			log.Fatal().Msg("failed to gracefully shutdown the service")
 		}
 	}()
 

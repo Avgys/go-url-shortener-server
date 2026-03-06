@@ -25,8 +25,8 @@ func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
 }
 
 func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	alreadyExists = make(map[string]string)
 	retryToInsert = make([]string, 0)
@@ -67,8 +67,8 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 }
 
 func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 
 	url, ok := s.shortURLToModel[shortURL]
 

@@ -239,29 +239,36 @@ func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context
 
 func (s *Shortifier) deleteBatchFromDB(g *errgroup.Group, queueDelete []*deleteMessage) {
 
-	t := lo.Filter(queueDelete, func(m *deleteMessage, _ int) bool {
-		return m != nil
-	})
+	if len(queueDelete) == 0 {
+		return
+	}
 
-	if len(t) > 0 {
+	groupedByUser := make(map[int64][]string, 0)
 
-		groupedByUser := make(map[int64][]string, 0)
+	for _, message := range queueDelete {
 
-		for _, message := range queueDelete {
-			urls, exists := groupedByUser[message.userID]
-
-			if !exists {
-				groupedByUser[message.userID] = message.shortURLs
-			} else {
-				groupedByUser[message.userID] = append(urls, message.shortURLs...)
-			}
+		if message == nil {
+			continue
 		}
 
-		g.Go(func() error {
-			_, err := s.store.DeleteURLS(context.Background(), groupedByUser)
-			return err
-		})
+		urls, exists := groupedByUser[message.userID]
+
+		if !exists {
+			groupedByUser[message.userID] = message.shortURLs
+		} else {
+			groupedByUser[message.userID] = append(urls, message.shortURLs...)
+		}
 	}
+
+	if len(groupedByUser) == 0 {
+		return
+	}
+
+	g.Go(func() error {
+		_, err := s.store.DeleteURLS(context.Background(), groupedByUser)
+		return err
+	})
+
 }
 
 func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
@@ -269,9 +276,14 @@ func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string
 	select {
 	case <-s.done.Done():
 		return nil
+	case s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}:
+		return nil
 	default:
-		s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}
-	}
+		traceLogger.Warn().
+			Int("urls_count", len(urls)).
+			Int64("user_id", userID).
+			Msg("delete queue is full; cannot enqueue delete request")
 
-	return nil
+		return httpShared.NewError("delete queue is full, try again later", http.StatusServiceUnavailable)
+	}
 }
