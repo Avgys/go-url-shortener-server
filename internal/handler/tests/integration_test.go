@@ -35,7 +35,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 	prePool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err)
 
-	checkEmptyDb(ctx, t, err, prePool)
+	checkEmptyDB(ctx, t, prePool)
 
 	t.Cleanup(func() {
 		_, err = prePool.Exec(
@@ -49,7 +49,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		err = store.Close()
+		err := store.Close()
 		require.NoError(t, err)
 	})
 
@@ -106,11 +106,11 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 	}
 }
 
-func checkEmptyDb(ctx context.Context, t *testing.T, err error, prePool *pgxpool.Pool) {
+func checkEmptyDB(ctx context.Context, t *testing.T, prePool *pgxpool.Pool) {
 	t.Helper()
 
 	var tableExists bool
-	err = prePool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public')").Scan(&tableExists)
+	err := prePool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public')").Scan(&tableExists)
 	require.NoError(t, err)
 	require.False(t, tableExists, "Database should be empty")
 }
