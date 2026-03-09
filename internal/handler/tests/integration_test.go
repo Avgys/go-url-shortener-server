@@ -26,7 +26,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 	require.NoError(t, os.Chdir(rootDir))
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
-	dsn := "postgres://app:secret@localhost:5432/test?sslmode=disable" //os.Getenv("TEST_DATABASE_DSN")
+	dsn := os.Getenv("TEST_DATABASE_DSN")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN is not set")
 	}
