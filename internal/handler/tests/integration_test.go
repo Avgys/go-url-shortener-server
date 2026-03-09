@@ -110,7 +110,7 @@ func checkEmptyDb(ctx context.Context, t *testing.T, err error, prePool *pgxpool
 	t.Helper()
 
 	var tableExists bool
-	err = prePool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'urls')").Scan(&tableExists)
+	err = prePool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public')").Scan(&tableExists)
 	require.NoError(t, err)
 	require.False(t, tableExists, "Database should be empty")
 }
