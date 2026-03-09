@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
@@ -19,9 +20,6 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 )
-
-const shortURLMaxLength = 8
-const maxStoreRetryCount = 20
 
 var (
 	ErrCollision = errors.New("could not find free space to store url")
@@ -42,39 +40,40 @@ type deleteMessage struct {
 	userID    int64
 }
 
-type Shortifier struct {
-	domain          string
-	store           repository.Repository
-	stringGenerator StringGenerator
-	redirectAddr    *flagvalues.NetAddress
-
-	done        context.Context
-	deleteQueue chan *deleteMessage
-	logger      *zerolog.Logger
-}
+type deleteQueue chan *deleteMessage
 
 type storeInfo struct {
 	shortURL string
 	new      bool
 }
 
+type Shortifier struct {
+	domain          string
+	store           repository.Repository
+	stringGenerator StringGenerator
+	redirectAddr    *flagvalues.NetAddress
+
+	done       context.Context
+	deletePool chan *deleteQueue
+	logger     *zerolog.Logger
+}
+
+type groupedBatch map[int64][]string
+
 func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) *Shortifier {
 
 	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
 
-	s.deleteQueue = make(chan *deleteMessage, 50)
-
 	g, c := errgroup.WithContext(done)
 
-	s.startDelete(g, c)
+	s.initDeletePool(g, c)
+
 	logger, closeLog := logger.NewLogger()
 	s.logger = logger
 
 	go func() {
 
 		<-c.Done()
-
-		close(s.deleteQueue)
 
 		if err := g.Wait(); err != nil {
 			s.logger.Err(err).Send()
@@ -136,8 +135,12 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, tr
 	full2shortBatch := make(map[string]string, len(urls))
 	urlsToInsert := lo.Map(urls, func(x model.IndexedFullURL, _ int) string { return x.FullURL })
 
+	const maxStoreRetryCount = 20
+
 	for range maxStoreRetryCount {
 		clear(full2shortBatch)
+
+		const shortURLMaxLength = 8
 
 		for _, fullURL := range urlsToInsert {
 			full2shortBatch[fullURL] = s.stringGenerator.GetRandomString(shortURLMaxLength)
@@ -212,12 +215,19 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 	return urls, err
 }
 
-func (s *Shortifier) startDelete(g *errgroup.Group, ctx context.Context) {
+func (s *Shortifier) startDelete(g *errgroup.Group, ctx context.Context, batchQueue chan *deleteMessage) {
 
-	go func() {
+	chanForDelete := make(chan []*deleteMessage)
+
+	g.Go(func() error {
+		defer close(chanForDelete)
 
 		queueForDelete := make([]*deleteMessage, 0)
-		ticker := time.NewTicker(1 * time.Second)
+
+		const deleteTickerInterval = 1 * time.Second
+		const minDeleteBatchSize = 200
+
+		ticker := time.NewTicker(deleteTickerInterval)
 		defer ticker.Stop()
 
 		isLastDelete := false
@@ -227,36 +237,63 @@ func (s *Shortifier) startDelete(g *errgroup.Group, ctx context.Context) {
 			case <-ctx.Done():
 				isLastDelete = true
 			case <-ticker.C:
-			case message, ok := <-s.deleteQueue:
+			case message, ok := <-batchQueue:
 				if ok {
 					queueForDelete = append(queueForDelete, message)
 				} else {
 					isLastDelete = true
 				}
 
-				if len(queueForDelete) < 200 && !isLastDelete {
+				if len(queueForDelete) < minDeleteBatchSize && !isLastDelete {
 					continue
 				}
 			}
 
-			s.deleteBatchFromDB(g, queueForDelete)
-			clear(queueForDelete)
-			queueForDelete = queueForDelete[:0]
+			chanForDelete <- queueForDelete
 
 			if isLastDelete {
-				return
+				return nil
+			}
+
+			queueForDelete = make([]*deleteMessage, 0)
+		}
+	})
+
+	g.Go(func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+
+			case batch := <-chanForDelete:
+
+				groupedByUser := groupBatchByUser(batch)
+				err := s.deleteBatchFromDB(groupedByUser)
+
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}()
+	})
 }
 
-func (s *Shortifier) deleteBatchFromDB(g *errgroup.Group, queueDelete []*deleteMessage) {
+func (s *Shortifier) deleteBatchFromDB(groupedByUser groupedBatch) error {
 
-	if len(queueDelete) == 0 {
-		return
+	if len(groupedByUser) == 0 {
+		return nil
 	}
 
-	groupedByUser := make(map[int64][]string, 0)
+	_, err := s.store.DeleteURLS(context.Background(), groupedByUser)
+	return err
+}
+
+func groupBatchByUser(queueDelete []*deleteMessage) groupedBatch {
+	if len(queueDelete) == 0 {
+		return nil
+	}
+
+	groupedByUser := make(groupedBatch, 0)
 
 	for _, message := range queueDelete {
 
@@ -273,23 +310,20 @@ func (s *Shortifier) deleteBatchFromDB(g *errgroup.Group, queueDelete []*deleteM
 		}
 	}
 
-	if len(groupedByUser) == 0 {
-		return
-	}
-
-	g.Go(func() error {
-		_, err := s.store.DeleteURLS(context.Background(), groupedByUser)
-		return err
-	})
-
+	return groupedByUser
 }
 
 func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
 
 	select {
 	case <-s.done.Done():
-		return nil
-	case s.deleteQueue <- &deleteMessage{userID: userID, shortURLs: urls}:
+		return httpShared.NewError("server closing", http.StatusServiceUnavailable)
+	// receiving channel from pool
+	case queue := <-s.deletePool:
+		defer func() { s.deletePool <- queue }()
+
+		*queue <- &deleteMessage{userID: userID, shortURLs: urls}
+
 		return nil
 	default:
 		traceLogger.Warn().
@@ -297,6 +331,63 @@ func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string
 			Int64("user_id", userID).
 			Msg("delete queue is full; cannot enqueue delete request")
 
-		return httpShared.NewError("delete queue is full, try again later", http.StatusServiceUnavailable)
+		return httpShared.NewError("delete queue is full, try again later", http.StatusTooManyRequests)
 	}
+}
+
+func (s *Shortifier) initDeletePool(g *errgroup.Group, ctx context.Context) {
+	const maxDeleteWorkers = 10
+
+	s.deletePool = make(chan *deleteQueue, maxDeleteWorkers)
+	deleteChannels := make([]*deleteQueue, 0, maxDeleteWorkers)
+
+	for range maxDeleteWorkers {
+		deleteChannel := make(deleteQueue)
+
+		s.deletePool <- &deleteChannel
+		deleteChannels = append(deleteChannels, &deleteChannel)
+	}
+
+	go func() {
+		<-ctx.Done()
+
+		for _, c := range deleteChannels {
+			close(*c)
+		}
+	}()
+
+	batchDeleteCh := fanIn(ctx, deleteChannels)
+
+	s.startDelete(g, ctx, batchDeleteCh)
+}
+
+func fanIn(doneCtx context.Context, resultChs []*deleteQueue) chan *deleteMessage {
+	finalCh := make(chan *deleteMessage)
+
+	var wg sync.WaitGroup
+
+	for _, ch := range resultChs {
+		chClosure := ch
+
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			for data := range *chClosure {
+				select {
+				case <-doneCtx.Done():
+					return
+				case finalCh <- data:
+				}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(finalCh)
+	}()
+
+	return finalCh
 }
