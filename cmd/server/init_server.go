@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -42,7 +43,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 	store, err := repository.NewRepository(done, cfg, traceLogger)
 
 	if err != nil {
-		traceLogger.Err(err).Msg("error initializing repository")
+		err = fmt.Errorf("error initializing repository: %w", err)
 		return nil, err
 	}
 

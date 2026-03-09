@@ -56,7 +56,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, testHost.String()+tt.url, nil)
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)

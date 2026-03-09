@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/go-chi/chi/v5"
@@ -30,9 +31,12 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.Endpoint(ctx, "GetURLsByUserID")
 
-	claims, err := getClaims(ctx)
+	claims, err := jwttoken.GetClaims(ctx)
+
 	if err != nil {
-		shared.WriteResponse(w, nil, http.StatusUnauthorized)
+		traceLogger.Err(err).Send()
+		err = shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		shared.WriteError(w, r, err, traceLogger)
 		return
 	}
 

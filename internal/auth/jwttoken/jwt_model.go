@@ -1,16 +1,22 @@
 package jwttoken
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type CookieName string
+
+const claimsName CookieName = "CLAIMS"
+const secretKey = "SECRETTOKEN"
+
 const TokenExp = time.Hour * 3
 
 var signMethod = jwt.SigningMethodHS256
-var secretKey = "SECRETTOKEN"
 
 type Claims struct {
 	jwt.RegisteredClaims
@@ -53,4 +59,22 @@ func verifyToken(t *jwt.Token) (interface{}, error) {
 	}
 
 	return []byte(secretKey), nil
+}
+
+func GetClaims(ctx context.Context) (*Claims, error) {
+	claims, ok := ctx.Value(claimsName).(*Claims)
+
+	if !ok || claims == nil || claims.UserID == 0 {
+		return &Claims{}, errors.New("wrong auth token")
+	}
+
+	return claims, nil
+}
+
+func (c Claims) WithContext(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(claimsName).(*Claims); ok {
+		// Do not store disabled logger.
+		return ctx
+	}
+	return context.WithValue(ctx, claimsName, &c)
 }

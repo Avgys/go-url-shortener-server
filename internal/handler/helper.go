@@ -1,12 +1,11 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth"
 	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
@@ -54,7 +53,12 @@ func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.R
 func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*model.ShortenBatchResp, error) {
 
 	ctx := r.Context()
-	claims, _ := getClaims(ctx)
+	claims, err := jwttoken.GetClaims(ctx)
+
+	if err != nil {
+		showErr := shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		return nil, fmt.Errorf("%w inner error: %w", showErr, err)
+	}
 
 	serviceReq := &service.ShortenBatchReq{URLs: model, UserID: claims.UserID}
 	resultURL, err := h.Shortifier.ShortifyBatch(r.Context(), serviceReq, traceLogger)
@@ -68,14 +72,4 @@ func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog
 	}
 
 	return &resultURL, nil
-}
-
-func getClaims(ctx context.Context) (*jwttoken.Claims, error) {
-	claims, ok := ctx.Value(auth.Claims).(*jwttoken.Claims)
-
-	if !ok || claims == nil || claims.UserID == 0 {
-		return &jwttoken.Claims{}, errors.New("wrong auth token")
-	}
-
-	return claims, nil
 }

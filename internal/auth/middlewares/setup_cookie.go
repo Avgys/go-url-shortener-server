@@ -1,14 +1,12 @@
 package middlewares
 
 import (
-	"context"
 	"math/big"
 	"net/http"
 	"time"
 
 	"crypto/rand"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth"
 	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 )
@@ -18,7 +16,7 @@ func SetCookie(h http.Handler) http.Handler {
 
 		traceLogger := logger.Middleware(r.Context(), "SetCookie")
 
-		authCookie, err := r.Cookie(string(auth.AuthCookie))
+		authCookie, err := r.Cookie(string(authCookieName))
 
 		resetCookie := false
 		var claims *jwttoken.Claims
@@ -68,12 +66,18 @@ func SetCookie(h http.Handler) http.Handler {
 				Send()
 		}
 
-		authCtx := context.WithValue(r.Context(), auth.Claims, claims)
+		authCtx := claims.WithContext(r.Context())
 		r = r.WithContext(authCtx)
+
 		// refresh cookie expire time
-		newCookie := &http.Cookie{Name: string(auth.AuthCookie), Value: tokenString, Expires: time.Now().Add(jwttoken.TokenExp), HttpOnly: true}
+		newCookie := createCookie(tokenString)
 		http.SetCookie(w, newCookie)
 
 		h.ServeHTTP(w, r)
 	})
+}
+
+func createCookie(cookieValue string) *http.Cookie {
+	newCookie := &http.Cookie{Name: string(authCookieName), Value: cookieValue, Expires: time.Now().Add(jwttoken.TokenExp), HttpOnly: true, Path: "/"}
+	return newCookie
 }

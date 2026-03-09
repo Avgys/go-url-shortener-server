@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
@@ -37,7 +37,8 @@ func (m *mockStrGenSequence) GetRandomString(n int) string {
 func Test_handlers_ShortifyURL(t *testing.T) {
 
 	host := "http://localhost:8080"
-	awaitedStr, _ := url.JoinPath(host, testcommon.TestStr)
+	awaitedStr, err := url.JoinPath(host, testcommon.TestStr)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name             string
@@ -104,7 +105,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)
@@ -143,7 +144,7 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			//Init
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Get short url
 			req := httptest.NewRequest(http.MethodPost, testHost.Host, strings.NewReader(tt.url))
@@ -175,8 +176,11 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 func Test_handlers_ShortenURL(t *testing.T) {
 
 	host := "http://localhost:8080"
-	requestPath, _ := url.JoinPath(host, "api", "shorten")
-	awaitedStr, _ := url.JoinPath(host, testcommon.TestStr)
+	requestPath, err := url.JoinPath(host, "api", "shorten")
+	require.NoError(t, err)
+
+	awaitedStr, err := url.JoinPath(host, testcommon.TestStr)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name             string
@@ -247,7 +251,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)
@@ -264,10 +268,14 @@ func Test_handlers_ShortenURL(t *testing.T) {
 func Test_handlers_ShortenBatch(t *testing.T) {
 
 	host := "http://localhost:8080"
-	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
+	requestPath, err := url.JoinPath(host, "api", "shorten", "batch")
+	require.NoError(t, err)
 
-	shortURL1, _ := url.JoinPath(host, "short-1")
-	shortURL2, _ := url.JoinPath(host, "short-2")
+	shortURL1, err := url.JoinPath(host, "short-1")
+	require.NoError(t, err)
+
+	shortURL2, err := url.JoinPath(host, "short-2")
+	require.NoError(t, err)
 
 	tests := []struct {
 		name             string
@@ -356,7 +364,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
@@ -389,7 +397,7 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()
-	r := getRouter(&innerStructure{
+	r := getRouter(t, &innerStructure{
 		strGen: &mockStrGenSequence{values: []string{"short-1", "short-2"}},
 	})
 
@@ -424,30 +432,21 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 }
 
 func Test_handlers_ShortenDeleteRead(t *testing.T) {
-	host := "http://localhost:8080"
-	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
-	deletePath, _ := url.JoinPath(host, "api", "user", "urls")
-
 	const workerCount = 20
 	const urlsPerWorker = 3
 
-	getAuthCookie := func(res *http.Response) (*http.Cookie, error) {
-		for _, cookie := range res.Cookies() {
-			if cookie.Name == string(auth.AuthCookie) {
-				return cookie, nil
-			}
-		}
-		return nil, fmt.Errorf("auth cookie is not set")
-	}
-
-	waitForGone := func(r http.Handler, shortURL string, shortKey string) error {
+	waitForGone := func(client *http.Client, resolveURL string, shortKey string) error {
 		deadline := time.Now().Add(2 * time.Second)
 		for {
-			resolveReq := httptest.NewRequest(http.MethodGet, shortURL, nil)
+			resolveReq, err := http.NewRequest(http.MethodGet, resolveURL, nil)
+			if err != nil {
+				return err
+			}
 			resolveReq.SetPathValue("url", shortKey)
-			resolveRecorder := httptest.NewRecorder()
-			r.ServeHTTP(resolveRecorder, resolveReq)
-			resolveRes := resolveRecorder.Result()
+			resolveRes, err := client.Do(resolveReq)
+			if err != nil {
+				return err
+			}
 			resolveRes.Body.Close()
 
 			if resolveRes.StatusCode == http.StatusGone {
@@ -471,6 +470,19 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
+			jar, err := cookiejar.New(nil)
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			client := &http.Client{
+				Jar: jar,
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
 			shortValues := []string{
 				fmt.Sprintf("s-%d-1", idx),
 				fmt.Sprintf("s-%d-2", idx),
@@ -489,26 +501,34 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				return
 			}
 
-			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
-
-			recorder := httptest.NewRecorder()
-			r := getRouter(&innerStructure{
+			r := getRouter(t, &innerStructure{
 				strGen: &mockStrGenSequence{values: shortValues},
 			})
+			ts := httptest.NewServer(r)
+			defer ts.Close()
 
-			r.ServeHTTP(recorder, req)
-			res := recorder.Result()
+			requestPath, err := url.JoinPath(ts.URL, "api", "shorten", "batch")
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			req, err := http.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
+			if err != nil {
+				errCh <- err
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			res, err := client.Do(req)
+			if err != nil {
+				errCh <- err
+				return
+			}
 			defer res.Body.Close()
 
 			if res.StatusCode != http.StatusCreated {
 				errCh <- fmt.Errorf("unexpected status %d", res.StatusCode)
-				return
-			}
-
-			authCookie, err := getAuthCookie(res)
-			if err != nil {
-				errCh <- err
 				return
 			}
 
@@ -525,8 +545,8 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 
 			deleteKeys := make([]string, 0, urlsPerWorker)
 			shortRefs := make([]struct {
-				shortURL string
-				shortKey string
+				resolveURL string
+				shortKey   string
 			}, 0, urlsPerWorker)
 
 			for _, item := range batchResp {
@@ -539,9 +559,9 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				shortKey := strings.TrimPrefix(parsed.Path, "/")
 				deleteKeys = append(deleteKeys, shortKey)
 				shortRefs = append(shortRefs, struct {
-					shortURL string
-					shortKey string
-				}{shortURL: item.ShortURL, shortKey: shortKey})
+					resolveURL string
+					shortKey   string
+				}{resolveURL: ts.URL + parsed.Path, shortKey: shortKey})
 			}
 
 			deleteBody, err := json.Marshal(deleteKeys)
@@ -550,12 +570,24 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				return
 			}
 
-			deleteReq := httptest.NewRequest(http.MethodDelete, deletePath, bytes.NewReader(deleteBody))
+			deletePath, err := url.JoinPath(ts.URL, "api", "user", "urls")
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			deleteReq, err := http.NewRequest(http.MethodDelete, deletePath, bytes.NewReader(deleteBody))
+			if err != nil {
+				errCh <- err
+				return
+			}
 			deleteReq.Header.Set("Content-Type", "application/json")
-			deleteReq.AddCookie(authCookie)
-			deleteRecorder := httptest.NewRecorder()
-			r.ServeHTTP(deleteRecorder, deleteReq)
-			deleteRes := deleteRecorder.Result()
+
+			deleteRes, err := client.Do(deleteReq)
+			if err != nil {
+				errCh <- err
+				return
+			}
 			deleteRes.Body.Close()
 
 			if deleteRes.StatusCode != http.StatusAccepted {
@@ -564,7 +596,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 			}
 
 			for _, ref := range shortRefs {
-				if err := waitForGone(r, ref.shortURL, ref.shortKey); err != nil {
+				if err := waitForGone(client, ref.resolveURL, ref.shortKey); err != nil {
 					errCh <- err
 					return
 				}

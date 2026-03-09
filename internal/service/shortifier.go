@@ -66,7 +66,7 @@ func NewShortifier(done context.Context, stringGenerator StringGenerator, store 
 
 	g, c := errgroup.WithContext(done)
 
-	s.startDeleteCoroutine(g, c)
+	s.startDelete(g, c)
 	logger, closeLog := logger.NewLogger()
 	s.logger = logger
 
@@ -212,7 +212,7 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 	return urls, err
 }
 
-func (s *Shortifier) startDeleteCoroutine(g *errgroup.Group, ctx context.Context) {
+func (s *Shortifier) startDelete(g *errgroup.Group, ctx context.Context) {
 
 	go func() {
 

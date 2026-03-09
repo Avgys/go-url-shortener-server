@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	repositorydb "github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
@@ -24,25 +26,32 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 	require.NoError(t, os.Chdir(rootDir))
 	t.Cleanup(func() { _ = os.Chdir(wd) })
 
-	dsn := os.Getenv("TEST_DATABASE_DSN")
+	dsn := "postgres://app:secret@localhost:5432/test?sslmode=disable" //os.Getenv("TEST_DATABASE_DSN")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN is not set")
 	}
 
-	ctx := context.Background()
-	dbConn, err := repositorydb.NewDB(ctx, &repositorydb.Config{ConnectionString: dsn})
+	ctx := t.Context()
+	prePool, err := pgxpool.New(ctx, dsn)
 	require.NoError(t, err)
-	t.Cleanup(dbConn.Close)
 
-	_, err = dbConn.Pool.Exec(ctx, "TRUNCATE TABLE urls")
-	require.NoError(t, err)
-	defer func() {
-		_, _ = dbConn.Pool.Exec(ctx, "TRUNCATE TABLE urls")
-	}()
+	checkEmptyDb(ctx, t, err, prePool)
+
+	t.Cleanup(func() {
+		_, err = prePool.Exec(
+			context.Background(),
+			"DO $$ DECLARE r RECORD; BEGIN FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE'; END LOOP; END $$;",
+		)
+		require.NoError(t, err)
+		prePool.Close()
+	})
 
 	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn}, nil)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close() })
+	t.Cleanup(func() {
+		err = store.Close()
+		require.NoError(t, err)
+	})
 
 	tests := []struct {
 		name             string
@@ -68,7 +77,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			//Init
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Get short url
 			req := httptest.NewRequest(http.MethodPost, testHost.Host, strings.NewReader(tt.url))
@@ -95,4 +104,13 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 			testcommon.CheckResponseFields(t, res, tt.want)
 		})
 	}
+}
+
+func checkEmptyDb(ctx context.Context, t *testing.T, err error, prePool *pgxpool.Pool) {
+	t.Helper()
+
+	var tableExists bool
+	err = prePool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'urls')").Scan(&tableExists)
+	require.NoError(t, err)
+	require.False(t, tableExists, "Database should be empty")
 }
