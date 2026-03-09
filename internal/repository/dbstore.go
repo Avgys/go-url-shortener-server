@@ -31,7 +31,7 @@ func NewDBStore(ctx context.Context, dbConfig *db.Config, logger *zerolog.Logger
 	return &DBStore{db: dbConnection}, nil
 }
 
-func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
+func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
 	const queryTmp = `
 		SELECT id, short_url, long_url, created_at, deleted_at_utc
 		FROM public.urls 
@@ -48,13 +48,13 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return model.DBURL{}, ErrNotFound
 		}
 
-		return nil, fmt.Errorf("failed to scan a response row: %w", err)
+		return model.DBURL{}, fmt.Errorf("failed to scan a response row: %w", err)
 	}
 
-	return &dbVal, nil
+	return dbVal, nil
 }
 
 func (s *DBStore) TestConnection(ctx context.Context) error {
@@ -172,7 +172,7 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 	return
 }
 
-func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
 	const queryTmp = `
 		SELECT id, short_url, long_url, created_at, user_id, deleted_at_utc
 		FROM urls 
@@ -191,7 +191,7 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	urls := make([]*model.DBURL, 0)
+	urls := make([]model.DBURL, 0)
 
 	defer rows.Close()
 	for rows.Next() {
@@ -205,7 +205,7 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		urls = append(urls, &dbURL)
+		urls = append(urls, dbURL)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -215,7 +215,7 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.D
 	return urls, nil
 }
 
-func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
+func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
 
 	const queryTmp = `
 		update urls 
@@ -258,7 +258,7 @@ func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]stri
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	urls := make([]*model.DBURL, 0)
+	urls := make([]model.DBURL, 0)
 
 	defer rows.Close()
 	for rows.Next() {
@@ -272,7 +272,7 @@ func (s *DBStore) DeleteURLS(ctx context.Context, groupedByUser map[int64][]stri
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 
-		urls = append(urls, &dbURL)
+		urls = append(urls, dbURL)
 	}
 
 	if err := rows.Err(); err != nil {

@@ -66,17 +66,17 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 	return
 }
 
-func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
+func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
 	url, ok := s.shortURLToModel[shortURL]
 
 	if !ok {
-		return nil, ErrNotFound
+		return model.DBURL{}, ErrNotFound
 	}
 
-	return url, nil
+	return *url, nil
 }
 
 func (s *InMemoryStore) TestConnection(ctx context.Context) error {
@@ -87,39 +87,39 @@ func (s *InMemoryStore) Close() error {
 	return nil
 }
 
-func (s *InMemoryStore) getAll() []*model.DBURL {
+func (s *InMemoryStore) getAll() []model.DBURL {
 	defer s.mux.RUnlock()
 	s.mux.RLock()
 
 	values := lo.Values(s.shortURLToModel)
-	return values
+	return lo.Map(values, func(item *model.DBURL, _ int) model.DBURL { return *item })
 }
 
-func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
 
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	result := make([]*model.DBURL, 0)
+	result := make([]model.DBURL, 0)
 
 	for _, v := range s.shortURLToModel {
 
 		if v.UserID == userID {
 
-			result = append(result, v)
+			result = append(result, *v)
 		}
 	}
 
 	return result, nil
 }
 
-func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
+func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	utcNow := time.Now().UTC()
 
-	recordUpdate := make([]*model.DBURL, 0)
+	recordUpdate := make([]model.DBURL, 0)
 
 	for userID, urls := range groupedByUser {
 		for _, url := range urls {
@@ -132,7 +132,7 @@ func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[in
 			if dbURL.UserID == userID {
 				dbURL.DeletedAtUTC = &utcNow
 
-				recordUpdate = append(recordUpdate, dbURL)
+				recordUpdate = append(recordUpdate, *dbURL)
 			}
 		}
 	}

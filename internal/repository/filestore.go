@@ -150,16 +150,16 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 		return
 	}
 
-	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (*model.DBURL, bool) {
+	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (model.DBURL, bool) {
 		if _, exists := alreadyExists[origin]; exists {
-			return nil, false
+			return model.DBURL{}, false
 		}
 
 		if lo.Contains(retryToInsert, origin) {
-			return nil, false
+			return model.DBURL{}, false
 		}
 
-		return &model.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
+		return model.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
 	})
 
 	if err = fs.append(urlsToSave); err != nil {
@@ -169,9 +169,9 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 	return retryToInsert, alreadyExists, err
 }
 
-func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (*model.DBURL, error) {
+func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
 	if fs.isClosed.Load() {
-		return nil, ErrFileClosed
+		return model.DBURL{}, ErrFileClosed
 	}
 
 	return fs.store.ResolveShortURL(ctx, shortURL)
@@ -181,7 +181,7 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(records []*model.DBURL) error {
+func (fs *FileStore) append(records []model.DBURL) error {
 	pos, err := fs.file.Seek(0, io.SeekEnd)
 
 	if err != nil {
@@ -197,15 +197,15 @@ func (fs *FileStore) append(records []*model.DBURL) error {
 	return err
 }
 
-func (fs *FileStore) getAll() []*model.DBURL {
+func (fs *FileStore) getAll() []model.DBURL {
 	return fs.store.getAll()
 }
 
-func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]*model.DBURL, error) {
+func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
 	return fs.store.GetURLsByUserID(ctx, userID)
 }
 
-func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]*model.DBURL, error) {
+func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
 
 	deleted, err := fs.store.DeleteURLS(context, groupedByUser)
 

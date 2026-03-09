@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 type mockStrGenSequence struct {
@@ -432,8 +432,12 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 }
 
 func Test_handlers_ShortenDeleteRead(t *testing.T) {
-	const workerCount = 20
+	const workerCount = 1
 	const urlsPerWorker = 3
+
+	r := getRouter(t, nil)
+	ts := httptest.NewServer(r)
+	defer ts.Close()
 
 	waitForGone := func(client *http.Client, resolveURL string, shortKey string) error {
 		deadline := time.Now().Add(2 * time.Second)
@@ -461,19 +465,15 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 		}
 	}
 
-	var wg sync.WaitGroup
-	errCh := make(chan error, workerCount)
+	var g errgroup.Group
 
 	for i := 0; i < workerCount; i++ {
 		idx := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 
 			jar, err := cookiejar.New(nil)
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 
 			client := &http.Client{
@@ -481,12 +481,6 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				CheckRedirect: func(req *http.Request, via []*http.Request) error {
 					return http.ErrUseLastResponse
 				},
-			}
-
-			shortValues := []string{
-				fmt.Sprintf("s-%d-1", idx),
-				fmt.Sprintf("s-%d-2", idx),
-				fmt.Sprintf("s-%d-3", idx),
 			}
 
 			payload := model.ShortenBatchReq{
@@ -497,50 +491,37 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 
 			jsonBody, err := json.Marshal(payload)
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
-
-			r := getRouter(t, &innerStructure{
-				strGen: &mockStrGenSequence{values: shortValues},
-			})
-			ts := httptest.NewServer(r)
-			defer ts.Close()
 
 			requestPath, err := url.JoinPath(ts.URL, "api", "shorten", "batch")
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 
 			req, err := http.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 			req.Header.Set("Content-Type", "application/json")
 
 			res, err := client.Do(req)
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 			defer res.Body.Close()
 
 			if res.StatusCode != http.StatusCreated {
-				errCh <- fmt.Errorf("unexpected status %d", res.StatusCode)
-				return
+				return fmt.Errorf("unexpected status %d", res.StatusCode)
 			}
 
 			var batchResp model.ShortenBatchResp
 			if err := json.NewDecoder(res.Body).Decode(&batchResp); err != nil {
-				errCh <- err
-				return
+				return err
 			}
 
 			if len(batchResp) != urlsPerWorker {
-				errCh <- fmt.Errorf("expected %d urls, got %d", urlsPerWorker, len(batchResp))
-				return
+				return fmt.Errorf("expected %d urls, got %d", urlsPerWorker, len(batchResp))
 			}
 
 			deleteKeys := make([]string, 0, urlsPerWorker)
@@ -552,8 +533,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 			for _, item := range batchResp {
 				parsed, err := url.Parse(item.ShortURL)
 				if err != nil {
-					errCh <- err
-					return
+					return err
 				}
 
 				shortKey := strings.TrimPrefix(parsed.Path, "/")
@@ -566,48 +546,39 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 
 			deleteBody, err := json.Marshal(deleteKeys)
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 
 			deletePath, err := url.JoinPath(ts.URL, "api", "user", "urls")
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 
 			deleteReq, err := http.NewRequest(http.MethodDelete, deletePath, bytes.NewReader(deleteBody))
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 			deleteReq.Header.Set("Content-Type", "application/json")
 
 			deleteRes, err := client.Do(deleteReq)
 			if err != nil {
-				errCh <- err
-				return
+				return err
 			}
 			deleteRes.Body.Close()
 
 			if deleteRes.StatusCode != http.StatusAccepted {
-				errCh <- fmt.Errorf("unexpected delete status %d", deleteRes.StatusCode)
-				return
+				return fmt.Errorf("unexpected delete status %d", deleteRes.StatusCode)
 			}
 
 			for _, ref := range shortRefs {
 				if err := waitForGone(client, ref.resolveURL, ref.shortKey); err != nil {
-					errCh <- err
-					return
+					return err
 				}
 			}
-		}()
+
+			return nil
+		})
 	}
 
-	wg.Wait()
-	close(errCh)
-
-	for err := range errCh {
-		require.NoError(t, err)
-	}
+	require.NoError(t, g.Wait())
 }

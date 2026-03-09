@@ -98,7 +98,7 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 				Str("repository error", err.Error()).
 				Msg("url not found in repository")
 
-			return url, httpShared.NewError("url not found", http.StatusNotFound)
+			return &url, httpShared.NewError("url not found", http.StatusNotFound)
 		}
 
 		traceLogger.Err(err).
@@ -111,7 +111,7 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 		return nil, httpShared.NewError("link deleted", http.StatusGone)
 	}
 
-	return url, err
+	return &url, err
 }
 
 func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, traceLogger *zerolog.Logger) (result model.ShortenBatchResp, err error) {
@@ -205,9 +205,9 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 		return nil, httpShared.NewError("no urls", http.StatusNoContent)
 	}
 
-	dbURLs = lo.Filter(dbURLs, func(h *model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
+	dbURLs = lo.Filter(dbURLs, func(h model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
 
-	urls := lo.Map(dbURLs, func(dbURL *model.DBURL, _ int) model.URLPair {
+	urls := lo.Map(dbURLs, func(dbURL model.DBURL, _ int) model.URLPair {
 		link, _ := url.JoinPath(s.redirectAddr.String(), dbURL.ShortURL)
 		return model.URLPair{ShortURL: link, OriginalURL: dbURL.OriginalURL}
 	})
@@ -367,18 +367,23 @@ func fanIn(doneCtx context.Context, resultChs []*deleteQueue) chan *deleteMessag
 	var wg sync.WaitGroup
 
 	for _, ch := range resultChs {
-		chClosure := ch
+		chClosure := *ch
 
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 
-			for data := range *chClosure {
+			for {
 				select {
 				case <-doneCtx.Done():
 					return
-				case finalCh <- data:
+				case data, open := <-chClosure:
+					if open {
+						finalCh <- data
+					} else {
+						return
+					}
 				}
 			}
 		}()
