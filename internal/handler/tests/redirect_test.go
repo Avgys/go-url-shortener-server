@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Avgys/go-url-shortener-server/internal/config"
+	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 )
@@ -22,7 +23,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			name: "Get redirect",
 			url:  "/short-url",
 			defaultStructure: &innerStructure{
-				store:  repository.NewInMemoryStore(map[string]string{"short-url": "full-url"}),
+				store:  repository.NewInMemoryStore([]*model.DBURL{{OriginalURL: "full-url", ShortURL: "short-url"}}),
 				config: &config.Config{AppURL: testHost},
 			},
 			want: testcommon.ResponseWant{
@@ -52,11 +53,10 @@ func Test_handlers_Redirect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			//Init
-
 			req := httptest.NewRequest(http.MethodGet, testHost.String()+tt.url, nil)
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(tt.defaultStructure)
+			r := getRouter(t, tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)

@@ -1,11 +1,14 @@
 package middlewares
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
+	"github.com/samber/lo"
 )
 
 type (
@@ -81,4 +84,8 @@ func (wr *writerWrapper) Write(input []byte) (int, error) {
 	wr.logData.responseSize = size
 
 	return size, err
+}
+
+func formatCookies(cookies []*http.Cookie) string {
+	return strings.Join(lo.Map(cookies, func(cookie *http.Cookie, _ int) string { return fmt.Sprintf("%s:%s", cookie.Name, cookie.Value) }), ",")
 }

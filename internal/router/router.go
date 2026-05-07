@@ -1,6 +1,7 @@
 package router
 
 import (
+	auth_middlewares "github.com/Avgys/go-url-shortener-server/internal/auth/middlewares"
 	"github.com/Avgys/go-url-shortener-server/internal/handler"
 	"github.com/Avgys/go-url-shortener-server/internal/middlewares"
 	"github.com/go-chi/chi/v5"
@@ -14,14 +15,38 @@ const jsonType = "application/json"
 func NewRouter(h *handler.Handlers) *chi.Mux {
 
 	r := chi.NewRouter()
+	setEndpoints(r, h)
+
+	return r
+}
+
+func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
 	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
 
-	r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
-	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten", h.ShortenURL)
-	r.With(middleware.AllowContentType(jsonType)).Post("/api/shorten/batch", h.ShortenBatch)
+	r.Group(func(r chi.Router) {
+
+		r.Use(auth_middlewares.SetCookie)
+		r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.AllowContentType(jsonType))
+
+			r.Post("/api/shorten", h.ShortenURL)
+			r.Post("/api/shorten/batch", h.ShortenBatch)
+		})
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth_middlewares.SetCookie, auth_middlewares.RequireCookie)
+
+		r.Route("/api/user", func(r chi.Router) {
+			r.Get("/urls", h.GetURLsByUserID)
+			r.With(middleware.AllowContentType(jsonType)).Delete("/urls", h.DeleteShortURL)
+		})
+
+	})
+
 	r.Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
-
-	return r
 }

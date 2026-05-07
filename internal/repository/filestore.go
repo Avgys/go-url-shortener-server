@@ -2,12 +2,20 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/gocarina/gocsv"
+	"github.com/rs/zerolog"
+	"github.com/samber/lo"
 )
 
 var (
@@ -17,17 +25,54 @@ var (
 type FileStore struct {
 	store    *InMemoryStore
 	file     *os.File
-	appender *json.Encoder
-	isClosed bool
+	appender *gocsv.SafeCSVWriter
+	logger   *zerolog.Logger
+	isClosed atomic.Bool
+
+	closeOnce sync.Once
 }
 
-type record struct {
-	ShortURL string `json:"short_url"`
-	FullURL  string `json:"full_url"`
+func NewFileStore(ctx context.Context, filename string, logger *zerolog.Logger) (*FileStore, error) {
+	file, err := openFile(filename)
+
+	if err != nil {
+		return nil, err
+	}
+
+	records, err := readRows(file)
+
+	if err != nil {
+		return nil, err
+	}
+
+	writer := csv.NewWriter(file)
+	gocsvWriter := gocsv.NewSafeCSVWriter(writer)
+
+	rep := &FileStore{file: file, store: NewInMemoryStore(records), appender: gocsvWriter, logger: logger}
+
+	go func() {
+		<-ctx.Done()
+
+		rep.Close()
+	}()
+
+	return rep, nil
 }
 
-func NewFileStore(filename string) (*FileStore, error) {
-	path := filename
+func readRows(file *os.File) ([]*model.DBURL, error) {
+	var records []*model.DBURL
+
+	reader := csv.NewReader(file)
+
+	err := gocsv.UnmarshalCSV(reader, &records)
+	if err != nil && !errors.Is(err, gocsv.ErrEmptyCSVFile) {
+		return nil, err
+	}
+
+	return records, nil
+}
+
+func openFile(path string) (*os.File, error) {
 
 	if !filepath.IsAbs(path) {
 		var err error
@@ -39,37 +84,14 @@ func NewFileStore(filename string) (*FileStore, error) {
 		}
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0666)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, os.ModePerm)
 
 	if err != nil {
 		err = fmt.Errorf("error opening store file, %w", err)
 		return nil, err
 	}
 
-	records := make(storage, 0)
-	dec := json.NewDecoder(file)
-
-	for {
-		var r record
-		err := dec.Decode(&r)
-
-		if err != nil {
-
-			if errors.Is(err, io.EOF) {
-				break
-			}
-
-			err = fmt.Errorf("error parsing store file, %w ", err)
-			return nil, err
-		}
-
-		records[r.ShortURL] = r.FullURL
-	}
-
-	appender := json.NewEncoder(file)
-	appender.SetEscapeHTML(false)
-
-	return &FileStore{file: file, store: NewInMemoryStore(records), appender: appender}, nil
+	return file, err
 }
 
 func clearFile(file *os.File) error {
@@ -83,44 +105,73 @@ func clearFile(file *os.File) error {
 }
 
 func (fs *FileStore) Close() error {
-	if fs.isClosed {
-		return errors.New("filestore closed")
-	}
 
-	if err := clearFile(fs.file); err != nil {
-		return err
-	}
+	var err error = nil
 
-	s := fs.getAll()
+	fs.closeOnce.Do(func() {
 
-	for k, v := range *s {
-		fs.append(&record{ShortURL: k, FullURL: v})
-	}
+		fs.isClosed.Store(true)
 
-	fs.file.Sync()
+		if err = clearFile(fs.file); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
 
-	fs.isClosed = true
-	return fs.file.Close()
+		s := fs.getAll()
+
+		if err = fs.append(s); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
+
+		if err = fs.file.Sync(); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
+
+		if err = fs.file.Close(); err != nil {
+			fs.logger.Err(err).Send()
+			return
+		}
+	})
+
+	return err
 }
 
-func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch) (retryToInsert []string, alreadyExists map[string]string, err error) {
-	if fs.isClosed {
+func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
+	if fs.isClosed.Load() {
 		err = ErrFileClosed
 		return
 	}
 
-	for fullURL, shortURL := range input {
-		if err = fs.append(&record{FullURL: fullURL, ShortURL: shortURL}); err != nil {
-			return
-		}
+	retryToInsert, alreadyExists, err = fs.store.StoreBatch(ctx, input, userID)
+
+	if err != nil {
+		return
 	}
 
-	return fs.store.StoreBatch(ctx, input)
+	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (model.DBURL, bool) {
+		if _, exists := alreadyExists[origin]; exists {
+			return model.DBURL{}, false
+		}
+
+		if lo.Contains(retryToInsert, origin) {
+			return model.DBURL{}, false
+		}
+
+		return model.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
+	})
+
+	if err = fs.append(urlsToSave); err != nil {
+		return
+	}
+
+	return retryToInsert, alreadyExists, err
 }
 
-func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (string, error) {
-	if fs.isClosed {
-		return "", ErrFileClosed
+func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
+	if fs.isClosed.Load() {
+		return model.DBURL{}, ErrFileClosed
 	}
 
 	return fs.store.ResolveShortURL(ctx, shortURL)
@@ -130,10 +181,41 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(record *record) error {
-	return fs.appender.Encode(record)
+func (fs *FileStore) append(records []model.DBURL) error {
+	pos, err := fs.file.Seek(0, io.SeekEnd)
+
+	if err != nil {
+		return err
+	}
+
+	if pos == 0 {
+		err = gocsv.MarshalCSV(records, fs.appender)
+	} else {
+		err = gocsv.MarshalCSVWithoutHeaders(records, fs.appender)
+	}
+
+	return err
 }
 
-func (fs *FileStore) getAll() *storage {
+func (fs *FileStore) getAll() []model.DBURL {
 	return fs.store.getAll()
+}
+
+func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
+	return fs.store.GetURLsByUserID(ctx, userID)
+}
+
+func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
+
+	deleted, err := fs.store.DeleteURLS(context, groupedByUser)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err = fs.append(deleted); err != nil {
+		return nil, err
+	}
+
+	return deleted, err
 }
