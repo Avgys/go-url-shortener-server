@@ -7,7 +7,8 @@ import (
 	"net/http"
 
 	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
+	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
@@ -39,8 +40,8 @@ func getJSONBody(r *http.Request, value any) error {
 	return err
 }
 
-func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.Request) (*model.IndexedShortURL, error) {
-	batch := model.ShortenBatchReq{model.IndexedFullURL{FullURL: url}}
+func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.Request) (*responses.IndexedShortURL, error) {
+	batch := requests.ShortenBatchReq{requests.IndexedFullURL{FullURL: url}}
 	urls, err := shortenBatch(h, batch, traceLogger, r)
 
 	if err != nil {
@@ -50,7 +51,7 @@ func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.R
 	return &(*urls)[0], nil
 }
 
-func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*model.ShortenBatchResp, error) {
+func shortenBatch(h *Handlers, batch requests.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*responses.ShortenBatchResp, error) {
 
 	ctx := r.Context()
 	claims, err := jwttoken.GetClaims(ctx)
@@ -60,7 +61,7 @@ func shortenBatch(h *Handlers, model model.ShortenBatchReq, traceLogger *zerolog
 		return nil, fmt.Errorf("%w inner error: %w", showErr, err)
 	}
 
-	serviceReq := &service.ShortenBatchReq{URLs: model, UserID: claims.UserID}
+	serviceReq := &service.ShortenBatchReq{URLs: batch, UserID: claims.UserID}
 	resultURL, err := h.Shortifier.ShortifyBatch(r.Context(), serviceReq, traceLogger)
 
 	if err != nil {

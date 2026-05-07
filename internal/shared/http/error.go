@@ -1,4 +1,4 @@
-package http
+package httphelper
 
 type ShowHTTPError struct {
 	text       string

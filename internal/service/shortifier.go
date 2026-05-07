@@ -13,6 +13,8 @@ import (
 	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
+	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
@@ -28,7 +30,7 @@ var (
 
 type ShortenBatchReq struct {
 	UserID int64
-	URLs   []model.IndexedFullURL
+	URLs   requests.ShortenBatchReq
 }
 
 type StringGenerator interface {
@@ -114,7 +116,7 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 	return &url, err
 }
 
-func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, traceLogger *zerolog.Logger) (result model.ShortenBatchResp, err error) {
+func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, traceLogger *zerolog.Logger) (result responses.ShortenBatchResp, err error) {
 
 	urls := req.URLs
 
@@ -133,7 +135,7 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, tr
 
 	readyBatch := make(map[string]storeInfo, len(urls))
 	full2shortBatch := make(map[string]string, len(urls))
-	urlsToInsert := lo.Map(urls, func(x model.IndexedFullURL, _ int) string { return x.FullURL })
+	urlsToInsert := lo.Map(urls, func(x requests.IndexedFullURL, _ int) string { return x.FullURL })
 
 	const maxStoreRetryCount = 20
 
@@ -180,10 +182,10 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, tr
 		urlsToInsert = retryToInsert
 	}
 
-	result = lo.Map(urls, func(x model.IndexedFullURL, _ int) model.IndexedShortURL {
+	result = lo.Map(urls, func(x requests.IndexedFullURL, _ int) responses.IndexedShortURL {
 		storedInfo := readyBatch[x.FullURL]
 		link, _ := url.JoinPath(s.redirectAddr.String(), storedInfo.shortURL)
-		return model.IndexedShortURL{CorrelationID: x.CorrelationID, ShortURL: link, IsCreated: storedInfo.new}
+		return responses.IndexedShortURL{CorrelationID: x.CorrelationID, ShortURL: link, IsCreated: storedInfo.new}
 	})
 
 	if len(urlsToInsert) != 0 {
@@ -193,7 +195,7 @@ func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, tr
 	return
 }
 
-func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error) {
+func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]responses.URLPair, error) {
 
 	dbURLs, err := s.store.GetURLsByUserID(ctx, userID)
 
@@ -207,9 +209,9 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 
 	dbURLs = lo.Filter(dbURLs, func(h model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
 
-	urls := lo.Map(dbURLs, func(dbURL model.DBURL, _ int) model.URLPair {
+	urls := lo.Map(dbURLs, func(dbURL model.DBURL, _ int) responses.URLPair {
 		link, _ := url.JoinPath(s.redirectAddr.String(), dbURL.ShortURL)
-		return model.URLPair{ShortURL: link, OriginalURL: dbURL.OriginalURL}
+		return responses.URLPair{ShortURL: link, OriginalURL: dbURL.OriginalURL}
 	})
 
 	return urls, err

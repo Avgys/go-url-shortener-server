@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,7 +56,7 @@ func Test_handlers_GetAll(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
-	var resp []model.URLPair
+	var resp []responses.URLPair
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	require.NoError(t, err)
 	require.Len(t, resp, len(urls))

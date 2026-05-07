@@ -47,7 +47,7 @@ func NewCompressWriter(w http.ResponseWriter, r *http.Request) (*compressWriter,
 	reqEncodeType := r.Header.Get(acceptEncodingHeader)
 	encodeType := getEncodeType(reqEncodeType)
 
-	if encodeType != noResult {
+	if encodeType == noResult {
 		return &compressWriter{ResponseWriter: w}, nil
 	}
 

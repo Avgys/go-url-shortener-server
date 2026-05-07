@@ -1,0 +1,53 @@
+# Local dev: Postgres + accrual + gophermart.
+# Env names: internal/config/config.go (gophermart); accrual uses RUN_ADDRESS + DATABASE_URI like CI.
+
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-praktikum}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    # Postgres 18+ images expect a single mount at /var/lib/postgresql (not .../data).
+    # If you upgraded from an older image, remove the old volume once: docker compose -f docker-compose.local.yml down -v
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  accrual:
+    build:
+      context: .
+      dockerfile: cmd/accrual/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      RUN_ADDRESS: ${ACCRUAL_RUN_ADDRESS:-:8080}
+      DATABASE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
+    ports:
+      - "${ACCRUAL_PORT:-8081}:8080"
+
+  gophermart:
+    build:
+      context: .
+      dockerfile: cmd/gophermart/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      accrual:
+        condition: service_started
+    environment:
+      RUN_ADDRESS: ${RUN_ADDRESS:-:8080}
+      DATABASE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
+      ACCRUAL_SYSTEM_ADDRESS: ${ACCRUAL_SYSTEM_ADDRESS:-http://accrual:8080}
+    ports:
+      - "${GOPHERMART_PORT:-8080}:8080"
+
+volumes:
+  postgres_data:

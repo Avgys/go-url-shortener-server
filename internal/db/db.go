@@ -38,19 +38,19 @@ func NewDB(ctx context.Context, cfg *Config) (*DB, error) {
 
 	pool, err := initPool(initCtx, cfg)
 
-	if err := runMigrations(initCtx, cfg); err != nil {
-		return nil, err
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize a connection pool: %w", err)
 	}
 
-	go func() {
-		<-ctx.Done()
+	if err := runMigrations(initCtx, cfg); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
 
-		pool.Close()
-	}()
+	// go func() {
+	// 	<-ctx.Done()
+
+	// 	pool.Close()
+	// }()
 
 	return &DB{Pool: pool}, nil
 }
@@ -88,7 +88,7 @@ func runMigrations(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("couldn't open migrations, %w, current dir %s", err, dir)
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) && !errors.Is(err, migrate.ErrNilVersion) {
 		return fmt.Errorf("couldn't run migrations, %w", err)
 	}
 
@@ -99,6 +99,7 @@ func (db *DB) Ping(ctx context.Context) error {
 	return db.Pool.Ping(ctx)
 }
 
-func (db *DB) Close() {
+func (db *DB) Close() error {
 	db.Pool.Close()
+	return nil
 }

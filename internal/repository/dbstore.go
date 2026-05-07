@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Avgys/go-url-shortener-server/internal/db"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
@@ -191,11 +191,11 @@ func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DB
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
-	urls := make([]model.DBURL, 0)
+	urls := make([]DBURL, 0)
 
 	defer rows.Close()
 	for rows.Next() {
-		var dbURL model.DBURL
+		var dbURL DBURL
 
 		if err = rows.Scan(&dbURL.ID, &dbURL.ShortURL, &dbURL.OriginalURL, &dbURL.CreatedAt, &dbURL.UserID, &dbURL.DeletedAtUTC); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

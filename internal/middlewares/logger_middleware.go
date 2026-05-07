@@ -1,14 +1,11 @@
 package middlewares
 
 import (
+	"avgys-gophermat/internal/logger"
 	"fmt"
 	"math/rand"
 	"net/http"
-	"strings"
 	"time"
-
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/samber/lo"
 )
 
 type (
@@ -31,14 +28,30 @@ func WithLogging(h http.Handler) http.Handler {
 
 		spanID := rand.Int63()
 		reqCtx := r.Context()
-		log, close := logger.NewRequestLogger(reqCtx, spanID)
+		log, close, err := logger.NewRequestLogger(reqCtx, spanID)
 
-		defer close()
+		if err != nil {
+			fmt.Print("couldn't create request logger")
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		defer func() { _ = close() }()
 
 		reqCtx = log.WithContext(reqCtx)
 		r = r.WithContext(reqCtx)
 
-		log = logger.Middleware(r.Context(), "WithLogging")
+		log, close, err = logger.Middleware(r.Context(), "WithLogging")
+
+		if err != nil {
+			fmt.Print("couldn't create request logger")
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		defer func() { _ = close() }()
 
 		log.Info().
 			Str("Path", r.RequestURI).
@@ -84,8 +97,4 @@ func (wr *writerWrapper) Write(input []byte) (int, error) {
 	wr.logData.responseSize = size
 
 	return size, err
-}
-
-func formatCookies(cookies []*http.Cookie) string {
-	return strings.Join(lo.Map(cookies, func(cookie *http.Cookie, _ int) string { return fmt.Sprintf("%s:%s", cookie.Name, cookie.Value) }), ",")
 }

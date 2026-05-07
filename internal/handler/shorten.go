@@ -7,6 +7,8 @@ import (
 
 	"github.com/Avgys/go-url-shortener-server/internal/logger"
 	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
+	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
@@ -20,8 +22,8 @@ type Handlers struct {
 
 type Shortifier interface {
 	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (*model.DBURL, error)
-	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (model.ShortenBatchResp, error)
-	GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
+	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (responses.ShortenBatchResp, error)
+	GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]responses.URLPair, error)
 	DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error
 }
 
@@ -67,7 +69,7 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	traceLogger := logger.Endpoint(ctx, "ShortenURL")
 
-	var reqModel model.ShortenReq
+	var reqModel requests.ShortenReq
 
 	if err := getJSONBody(r, &reqModel); err != nil {
 		shared.WriteError(w, r, err, traceLogger)
@@ -88,7 +90,7 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusConflict
 	}
 
-	result, err := json.Marshal(model.ShortenResp{URL: resultURL.ShortURL})
+	result, err := json.Marshal(responses.ShortenResp{URL: resultURL.ShortURL})
 
 	if err != nil {
 		shared.WriteError(w, r, err, traceLogger)
@@ -103,7 +105,7 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 
 	traceLogger := logger.Endpoint(r.Context(), "ShortenBatch")
 
-	var reqModel model.ShortenBatchReq
+	var reqModel requests.ShortenBatchReq
 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&reqModel)

@@ -1,44 +1,125 @@
-# go-musthave-shortener-tpl
+# Gophermart (loyalty service)
 
-Шаблон репозитория для трека «Сервис сокращения URL».
+![tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-gophermat-course-go-tests.json)
+![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-gophermat-course-go-coverage.json)
 
-## Начало работы
+HTTP service for a **loyalty program**: users earn points (scores) on qualifying orders and **spend those points on later purchases** via withdrawals. Most behavior is exposed through a **simple JSON REST API** (registration, login, orders, balance, withdrawals).
 
-1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-2. В корне репозитория выполните команду `go mod init <name>` (где `<name>` — адрес вашего репозитория на GitHub без префикса `https://`) для создания модуля.
+---
 
-## Обновление шаблона
+## How it works
 
-Чтобы иметь возможность получать обновления автотестов и других частей шаблона, выполните команду:
+1. **Client → API** — The user submits an order number to accrue points (`POST /api/user/orders`). The order is validated and **persisted in PostgreSQL**.
+2. **Background polling** — A routine periodically loads orders that still need accrual processing.
+3. **Worker pool** — A **goroutine pool** polls the external **accrual** service for each order: **status** and **accrued score**. Results are applied so the balance reflects earned points.
+4. **Spending points** — The user checks balance and records withdrawals against future purchases (`GET /api/user/balance`, `POST /api/user/balance/withdraw`, `GET /api/user/withdrawals`).
 
+Database **migrations** run automatically when the app starts (`golang-migrate`, `migrations/sql`).
+
+---
+
+## REST API (overview)
+
+| Area | Method | Path | Notes |
+|------|--------|------|--------|
+| Auth | `POST` | `/api/user/register` | JSON body |
+| Auth | `POST` | `/api/user/login` | JSON body |
+| Orders | `POST` | `/api/user/orders` | Submit order number (cookie auth) |
+| Orders | `GET` | `/api/user/orders` | List user orders |
+| Balance | `GET` | `/api/user/balance` | Current balance |
+| Balance | `POST` | `/api/user/balance/withdraw` | Withdraw points (JSON) |
+| Withdrawals | `GET` | `/api/user/withdrawals` | Withdrawal history |
+
+Protected routes use session cookie middleware after login.
+
+---
+
+## Configuration
+
+Environment variables (see `internal/config/config.go`):
+
+| Variable | Meaning |
+|----------|---------|
+| `RUN_ADDRESS` | HTTP listen address (e.g. `:8080`) |
+| `DATABASE_URI` | PostgreSQL connection string |
+| `ACCRUAL_SYSTEM_ADDRESS` | Base URL of the accrual service (e.g. `http://accrual:8080` in Docker) |
+
+Optional CLI overrides: `-a` (address), `-d` (database URI), `-r` (accrual URL).
+
+---
+
+## Deploy with Docker Compose
+
+The repo ships with **`docker-compose.local.yml`**: **PostgreSQL**, the **accrual** service, and **gophermart** on one network.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose v2
+
+### Quick start
+
+From the repository root:
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build
 ```
-git remote add -m v2 template https://github.com/Yandex-Practicum/go-musthave-shortener-tpl.git
+
+Or use the Makefile helper (same command):
+
+```bash
+make docker-local
 ```
 
-Для обновления кода автотестов выполните команду:
+### What gets started
 
+| Service | Role | Default host port |
+|---------|------|-------------------|
+| `postgres` | Database | `5432` (override with `POSTGRES_PORT`) |
+| `accrual` | Accrual API used by the worker pool | `8081` (`ACCRUAL_PORT`, maps to container `8080`) |
+| `gophermart` | This REST API | `8080` (`GOPHERMART_PORT`) |
+
+`gophermart` waits for Postgres to be healthy, then starts after `accrual` is up. Images are built from:
+
+- `cmd/gophermart/Dockerfile` — main API
+- `cmd/accrual/Dockerfile` — accrual service
+
+### Environment overrides
+
+Compose uses variables with defaults (see `docker-compose.local.yml`), for example:
+
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+- `RUN_ADDRESS` (gophermart listen address inside the container)
+- `ACCRUAL_SYSTEM_ADDRESS` — should point at the accrual service from gophermart (default `http://accrual:8080`)
+
+### Rebuild without cache
+
+```bash
+make docker-local-rebuild
 ```
-git fetch template && git checkout template/v2 .github
+
+### Stop and remove containers
+
+```bash
+docker compose -f docker-compose.local.yml down
 ```
 
-Затем добавьте полученные изменения в свой репозиторий.
+To remove the Postgres volume as well (destructive):
 
-## Запуск автотестов
+```bash
+docker compose -f docker-compose.local.yml down -v
+```
 
-Для успешного запуска автотестов называйте ветки `iter<number>`, где `<number>` — порядковый номер инкремента. Например, в ветке с названием `iter4` запустятся автотесты для инкрементов с первого по четвёртый.
+---
 
-При мёрже ветки с инкрементом в основную ветку `main` будут запускаться все автотесты.
+## Local development (without Docker)
 
-Подробнее про локальный и автоматический запуск читайте в [README автотестов](https://github.com/Yandex-Practicum/go-autotests).
+- `make build` / `make run` — build or run `cmd/gophermart`
+- `make tests` — run `go test ./...` (see `Makefile` for other targets)
 
-## Структура проекта
+Ensure Postgres is reachable and `DATABASE_URI` / `ACCRUAL_SYSTEM_ADDRESS` are set for your environment.
 
-Приведённая в этом репозитории структура проекта является рекомендуемой, но не обязательной.
+---
 
-Это лишь пример организации кода, который поможет вам в реализации сервиса.
+## Module
 
-При необходимости можно вносить изменения в структуру проекта, использовать любые библиотеки и предпочитаемые структурные паттерны организации кода приложения, например:
-- **DDD** (Domain-Driven Design)
-- **Clean Architecture**
-- **Hexagonal Architecture**
-- **Layered Architecture**
+Go module: `avgys-gophermat` (Go 1.26).

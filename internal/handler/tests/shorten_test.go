@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/Avgys/go-url-shortener-server/internal/model"
+	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
+	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
@@ -239,7 +241,7 @@ func Test_handlers_ShortenURL(t *testing.T) {
 
 			//Init
 
-			jsonBody, err := json.Marshal(model.ShortenReq{URL: tt.url})
+			jsonBody, err := json.Marshal(requests.ShortenReq{URL: tt.url})
 			require.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
@@ -279,14 +281,14 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          model.ShortenBatchReq
+		payload          requests.ShortenBatchReq
 		defaultStructure *innerStructure
 		contentType      string
 		want             testcommon.ResponseWant
 	}{
 		{
 			name: "create short urls",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url-1.com"},
 				{CorrelationID: "2", FullURL: "http://long-url-2.com"},
 			},
@@ -304,7 +306,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "url exists",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url.com"},
 			},
 			defaultStructure: &innerStructure{
@@ -321,7 +323,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "url wrong format",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "/gdfgdfhs"},
 			},
 			want: testcommon.ResponseWant{
@@ -330,7 +332,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "empty url",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: ""},
 			},
 			want: testcommon.ResponseWant{
@@ -339,7 +341,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "wrong content-type",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url.com"},
 			},
 			contentType: "text",
@@ -385,7 +387,7 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 		"2": "http://long-url-2.com",
 	}
 
-	payload := model.ShortenBatchReq{
+	payload := requests.ShortenBatchReq{
 		{CorrelationID: "1", FullURL: source["1"]},
 		{CorrelationID: "2", FullURL: source["2"]},
 	}
@@ -407,7 +409,7 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, res.StatusCode)
 
-	var batchResp model.ShortenBatchResp
+	var batchResp responses.ShortenBatchResp
 	err = json.NewDecoder(res.Body).Decode(&batchResp)
 	require.NoError(t, err)
 
@@ -483,7 +485,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				},
 			}
 
-			payload := model.ShortenBatchReq{
+			payload := requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: fmt.Sprintf("http://long-url-%d-1.com", idx)},
 				{CorrelationID: "2", FullURL: fmt.Sprintf("http://long-url-%d-2.com", idx)},
 				{CorrelationID: "3", FullURL: fmt.Sprintf("http://long-url-%d-3.com", idx)},
@@ -515,7 +517,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				return fmt.Errorf("unexpected status %d", res.StatusCode)
 			}
 
-			var batchResp model.ShortenBatchResp
+			var batchResp responses.ShortenBatchResp
 			if err := json.NewDecoder(res.Body).Decode(&batchResp); err != nil {
 				return err
 			}

@@ -1,4 +1,4 @@
-package model
+package responses
 
 type URLPair struct {
 	ShortURL    string `json:"short_url"`
