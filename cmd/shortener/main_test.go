@@ -14,16 +14,18 @@ import (
 	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/Avgys/go-url-shortener-server/internal/shared"
 	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRouter(t *testing.T) {
-	ts := getTestRouter()
+	ts := getTestRouter(t)
 	defer ts.Close()
 
 	redirectURL := "http://someurl"
 	host := ts.URL
-	awaitedURL, _ := url.JoinPath(host, testcommon.TestStr)
+	awaitedURL, err := url.JoinPath(host, testcommon.TestStr)
+	require.NoError(t, err)
 
 	var testTable = []struct {
 		name    string
@@ -45,18 +47,22 @@ func TestRouter(t *testing.T) {
 	}
 }
 
-func getTestRouter() *httptest.Server {
+func getTestRouter(t *testing.T) *httptest.Server {
+	t.Helper()
 
-	cfg, _ := config.GetConfig([]string{})
-	store := repository.NewStore(nil)
+	cfg, err := config.GetConfig([]string{}, &zerolog.Logger{})
+	require.NoError(t, err)
+
+	store := repository.NewInMemoryStore(nil)
 	strGen := &testcommon.MockStrGen{}
 
-	shortifier := service.NewShortifier(strGen, store, &cfg.RedirectDomain)
+	shortifier := service.NewShortifier(t.Context(), strGen, store, &cfg.RedirectDomain)
 	h := &handler.Handlers{Shortifier: shortifier}
 
 	ts := httptest.NewServer(router.NewRouter(h))
 
-	u, _ := shared.GetURL(ts.URL, true)
+	u, err := shared.GetURL(ts.URL, true)
+	require.NoError(t, err)
 
 	cfg.RedirectDomain.Host = u.Host
 	cfg.RedirectDomain.Scheme = u.Scheme
@@ -65,6 +71,7 @@ func getTestRouter() *httptest.Server {
 }
 
 func testRequest(t *testing.T, ts *httptest.Server, req *http.Request) *http.Response {
+	t.Helper()
 
 	client := ts.Client()
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -78,6 +85,8 @@ func testRequest(t *testing.T, ts *httptest.Server, req *http.Request) *http.Res
 }
 
 func getStoreRequest(t *testing.T, host string, longURL string) *http.Request {
+	t.Helper()
+
 	req, err := http.NewRequest(http.MethodPost, host, strings.NewReader(longURL))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
@@ -86,6 +95,8 @@ func getStoreRequest(t *testing.T, host string, longURL string) *http.Request {
 }
 
 func getRedirectRequest(t *testing.T, host string, shortURL string) *http.Request {
+	t.Helper()
+
 	req, err := http.NewRequest(http.MethodGet, host+"/"+shortURL, nil)
 	require.NoError(t, err)
 

@@ -1,47 +1,111 @@
 package main
 
 import (
-	"log"
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	"github.com/go-chi/chi/v5"
+	"github.com/Avgys/go-url-shortener-server/cmd/server"
+	"github.com/Avgys/go-url-shortener-server/internal/logger"
+	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	shutdownServerLimit = 5 * time.Second
+	shutdownLimit       = 10 * time.Second
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatal(err)
+
+	log, closeLogger := logger.NewLogger()
+	defer closeLogger()
+
+	if err := run(log); err != nil {
+		log.Fatal().Err(err).Send()
 	}
+
+	log.Println("bye-bye")
 }
 
-func run() error {
-	cfg, err := config.GetConfig(os.Args[1:])
+func run(log *zerolog.Logger) error {
+
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
+	*log = log.With().
+		Str("component", "initialize").
+		Logger()
+
+	g, ctx := errgroup.WithContext(rootCtx)
+
+	srv, err := server.GetServer(ctx, log)
 
 	if err != nil {
 		return err
 	}
 
-	r := prepareRouter(cfg)
+	shutdownDone := make(chan struct{})
 
-	srv := &http.Server{
-		Addr:    cfg.AppURL.Host,
-		Handler: r,
+	// Enforce app shutdown
+	go func() {
+		<-ctx.Done()
+		timer := time.NewTimer(shutdownLimit)
+		defer timer.Stop()
+
+		select {
+		case <-shutdownDone:
+			return
+		case <-timer.C:
+			log.Fatal().Msg("failed to gracefully shutdown the service")
+		}
+	}()
+
+	// start server
+	g.Go(func() (err error) {
+		defer func() {
+			errRec := recover()
+			if errRec != nil {
+				err = fmt.Errorf("a panic occurred: %v", errRec)
+			}
+		}()
+
+		if err := srv.ListenAndServe(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			return fmt.Errorf("listen and server has failed: %w", err)
+		}
+
+		return err
+	})
+
+	// graceful shutdown
+	g.Go(func() error {
+		defer log.Print("server has been shutdown")
+
+		<-ctx.Done()
+		defer close(shutdownDone)
+
+		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
+		defer cancelShutdownTimeoutCtx()
+
+		if err := srv.Shutdown(shutdownTimeoutCtx); err != nil {
+			log.Printf("an error occurred during server shutdown: %v", err)
+		}
+
+		return err
+	})
+
+	if err := g.Wait(); err != nil {
+		log.Err(err).Send()
+		return err
 	}
 
-	return srv.ListenAndServe()
-}
-
-func prepareRouter(cfg *config.Config) *chi.Mux {
-	store := repository.NewStore(nil)
-	generator := service.NewStringGenerator()
-
-	shortifier := service.NewShortifier(generator, store, &cfg.RedirectDomain)
-
-	h := handler.NewHandlers(shortifier)
-	return router.NewRouter(h)
+	return nil
 }
