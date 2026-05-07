@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
-	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/shared"
+	httpShared "go-url-shortener/internal/shared/http"
 )
 
 func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, traceLogger *zerolog.Logger) (result responses.ShortenBatchResp, err error) {

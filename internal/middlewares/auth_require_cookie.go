@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"avgys-gophermat/internal/logger"
-	"avgys-gophermat/internal/service/auth"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/service/auth"
 )
 
-func RequireCookie(h http.Handler) http.Handler {
+func AuthRequireCookie(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		traceLogger, close, err := logger.Middleware(r.Context(), "compress")
 

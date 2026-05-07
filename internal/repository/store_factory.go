@@ -3,9 +3,10 @@ package repository
 import (
 	"context"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository/db"
+	"go-url-shortener/internal/config"
+	"go-url-shortener/internal/db"
+	"go-url-shortener/internal/model"
+
 	"github.com/rs/zerolog"
 )
 

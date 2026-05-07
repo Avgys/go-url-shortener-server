@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
+	httpShared "go-url-shortener/internal/shared/http"
 	"golang.org/x/sync/errgroup"
 )
 

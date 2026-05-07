@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"go-url-shortener/internal/config"
+	"go-url-shortener/internal/handler"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/router"
+	"go-url-shortener/internal/service"
+	"go-url-shortener/internal/shared"
+	"go-url-shortener/internal/testcommon"
 )
 
 func TestRouter(t *testing.T) {

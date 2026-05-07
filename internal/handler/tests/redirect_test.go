@@ -5,10 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
+	"go-url-shortener/internal/config"
+	"go-url-shortener/internal/model"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/testcommon"
 )
 
 func Test_handlers_Redirect(t *testing.T) {

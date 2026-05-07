@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
+	"go-url-shortener/internal/model"
+	db_model "go-url-shortener/internal/model/db"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/repository"
+	httpShared "go-url-shortener/internal/shared/http"
+
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 )
@@ -26,7 +28,7 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 		return nil, httpShared.NewError("no urls", http.StatusNoContent)
 	}
 
-	dbURLs = lo.Filter(dbURLs, func(h model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
+	dbURLs = lo.Filter(dbURLs, func(h db_model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
 
 	urls := lo.Map(dbURLs, func(dbURL model.DBURL, _ int) responses.URLPair {
 		link, _ := url.JoinPath(s.redirectAddr.String(), dbURL.ShortURL)

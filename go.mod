@@ -1,6 +1,6 @@
-module github.com/Avgys/go-url-shortener-server
+module go-url-shortener
 
-go 1.24.13
+go 1.26.0
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1

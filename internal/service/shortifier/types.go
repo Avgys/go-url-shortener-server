@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
-	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
 	"github.com/rs/zerolog"
+	flagvalues "go-url-shortener/internal/config/flag_values"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/repository"
 )
 
 var (

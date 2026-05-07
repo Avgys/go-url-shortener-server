@@ -1,8 +1,8 @@
 package middlewares
 
 import (
-	"avgys-gophermat/internal/logger"
 	"fmt"
+	"go-url-shortener/internal/logger"
 	"math/rand"
 	"net/http"
 	"time"

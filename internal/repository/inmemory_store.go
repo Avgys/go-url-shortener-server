@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/samber/lo"
+	"go-url-shortener/internal/model"
 )
 
 type storage map[string]*model.DBURL

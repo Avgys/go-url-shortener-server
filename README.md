@@ -1,7 +1,7 @@
 # Gophermart (loyalty service)
 
-![tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-gophermat-course-go-tests.json)
-![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-gophermat-course-go-coverage.json)
+![tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-url-shortener-go-tests.json)
+![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FAvgys%2F6d76e76f4819d555ec85c6089ac087bb%2Fraw%2Fgo-url-shortener-go-coverage.json)
 
 HTTP service for a **loyalty program**: users earn points (scores) on qualifying orders and **spend those points on later purchases** via withdrawals. Most behavior is exposed through a **simple JSON REST API** (registration, login, orders, balance, withdrawals).
 
@@ -122,4 +122,4 @@ Ensure Postgres is reachable and `DATABASE_URI` / `ACCRUAL_SYSTEM_ADDRESS` are s
 
 ## Module
 
-Go module: `avgys-gophermat` (Go 1.26).
+Go module: `go-url-shortener` (Go 1.26).

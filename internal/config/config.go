@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"reflect"
 
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
 	"github.com/caarlos0/env/v11"
 	"github.com/rs/zerolog"
+	flagvalues "go-url-shortener/internal/config/flag_values"
 )
 
 type Config struct {

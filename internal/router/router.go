@@ -1,9 +1,9 @@
 package router
 
 import (
-	auth_middlewares "github.com/Avgys/go-url-shortener-server/internal/auth/middlewares"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/middlewares"
+	"go-url-shortener/internal/handler"
+	"go-url-shortener/internal/middlewares"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -26,7 +26,7 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
 	r.Group(func(r chi.Router) {
 
-		r.Use(auth_middlewares.SetCookie)
+		r.Use(middlewares.AuthRequireCookie, middlewares.SetCookie)
 		r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
 
 		r.Group(func(r chi.Router) {

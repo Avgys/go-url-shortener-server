@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"avgys-gophermat/internal/service/auth"
+	"go-url-shortener/internal/service/auth"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +20,7 @@ func TestRequireCookie_MissingCookie(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	recorder := httptest.NewRecorder()
 
-	RequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
 	assert.False(t, called)
 	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
@@ -36,7 +36,7 @@ func TestRequireCookie_InvalidToken(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: "bad"})
 	recorder := httptest.NewRecorder()
 
-	RequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
 	assert.False(t, called)
 	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
@@ -58,7 +58,7 @@ func TestRequireCookie_ValidToken(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: tokenStr})
 	recorder := httptest.NewRecorder()
 
-	RequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 

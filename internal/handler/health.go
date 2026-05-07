@@ -3,18 +3,20 @@ package handler
 import (
 	"net/http"
 
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
+	"go-url-shortener/internal/logger"
+	httphelper "go-url-shortener/internal/shared/http"
+	shared "go-url-shortener/internal/shared/http"
 )
 
 func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
-	// traceLogger := logger.Endpoint(r.Context(), "ping db")
+	ctx := r.Context()
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
 	err := h.Store.TestConnection(r.Context())
 
-	if err != nil {
-
-		shared.WriteResponse(w, nil, http.StatusInternalServerError)
+	if httphelper.HandleErr(w, r, err, traceLogger) {
+		return
 	}
 
-	shared.WriteResponse(w, nil, http.StatusOK)
+	shared.WriteResponse(w, nil, http.StatusOK, traceLogger)
 }

@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/db"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/rs/zerolog"
+	"go-url-shortener/internal/config"
+	"go-url-shortener/internal/db"
+	"go-url-shortener/internal/handler"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/router"
+	"go-url-shortener/internal/service"
 )
 
 func GetServer(done context.Context, traceLogger *zerolog.Logger) (*http.Server, error) {

@@ -3,14 +3,14 @@ package handler_test
 import (
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/router"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
+	"go-url-shortener/internal/config"
+	flagvalues "go-url-shortener/internal/config/flag_values"
+	"go-url-shortener/internal/handler"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/router"
+	"go-url-shortener/internal/service"
 )
 
 var testHost flagvalues.NetAddress = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http"}

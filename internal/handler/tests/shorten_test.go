@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
+	"go-url-shortener/internal/model"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/testcommon"
 	"golang.org/x/sync/errgroup"
 )
 

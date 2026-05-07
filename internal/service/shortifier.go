@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/service/shortifier"
+	flagvalues "go-url-shortener/internal/config/flag_values"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service/shortifier"
 )
 
 type (

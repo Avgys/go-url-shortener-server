@@ -1,10 +1,10 @@
 package httphelper
 
 import (
-	"avgys-gophermat/internal/logger"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go-url-shortener/internal/logger"
 	"io"
 	"net/http"
 )
@@ -27,7 +27,7 @@ func GetJSONBody(r *http.Request, value any) error {
 
 func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
-	traceLogger := logger.FromContext(r.Context())
+	traceLogger := logger.FromContext(r.Context(), logger.GetFuncName())
 	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 
 	result, err := io.ReadAll(r.Body)

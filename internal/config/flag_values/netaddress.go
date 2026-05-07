@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Avgys/go-url-shortener-server/internal/shared"
+	"go-url-shortener/internal/shared"
 )
 
 type NetAddress struct {

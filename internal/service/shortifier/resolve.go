@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
+	"go-url-shortener/internal/model"
+	"go-url-shortener/internal/repository"
+	httpShared "go-url-shortener/internal/shared/http"
 )
 
 func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*model.DBURL, error) {

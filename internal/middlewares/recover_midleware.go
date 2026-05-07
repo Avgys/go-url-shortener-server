@@ -1,8 +1,8 @@
 package middlewares
 
 import (
-	"avgys-gophermat/internal/logger"
 	"fmt"
+	"go-url-shortener/internal/logger"
 	"net/http"
 )
 
@@ -10,7 +10,7 @@ func Recoverer(next http.Handler) http.Handler {
 
 	fn := func(writer http.ResponseWriter, req *http.Request) {
 
-		traceLogger := logger.FromContext(req.Context())
+		traceLogger := logger.FromContext(req.Context(), logger.GetFuncName())
 
 		defer func() {
 			if rvr := recover(); rvr != nil {

@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	repositorydb "github.com/Avgys/go-url-shortener-server/internal/repository/db"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
 	"github.com/stretchr/testify/require"
+	"go-url-shortener/internal/repository"
+	repositorydb "go-url-shortener/internal/repository/db"
+	"go-url-shortener/internal/testcommon"
 )
 
 func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {

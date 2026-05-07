@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
 	"github.com/stretchr/testify/require"
+	"go-url-shortener/internal/model/responses"
 )
 
 func Test_handlers_GetAll(t *testing.T) {

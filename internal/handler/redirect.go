@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/go-chi/chi/v5"
+	"go-url-shortener/internal/auth/jwttoken"
+	"go-url-shortener/internal/logger"
+	httphelper "go-url-shortener/internal/shared/http"
+	shared "go-url-shortener/internal/shared/http"
 )
 
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
@@ -18,8 +19,7 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	url := chi.URLParam(r, "url")
 	dbURL, err := h.Shortifier.ResolveShortURL(ctx, url, traceLogger)
 
-	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
+	if httphelper.HandleErr(w, r, err, traceLogger) {
 		return
 	}
 

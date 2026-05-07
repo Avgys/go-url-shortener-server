@@ -3,9 +3,9 @@ package shortifier
 import (
 	"context"
 
-	flagvalues "github.com/Avgys/go-url-shortener-server/internal/config/flag_values"
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
+	flagvalues "go-url-shortener/internal/config/flag_values"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/repository"
 	"golang.org/x/sync/errgroup"
 )
 

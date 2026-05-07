@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/model"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service"
+	shared "go-url-shortener/internal/shared/http"
 )
 
 type Handlers struct {

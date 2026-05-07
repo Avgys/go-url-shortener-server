@@ -10,8 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/cmd/server"
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/server"
+
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )

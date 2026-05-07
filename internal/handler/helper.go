@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
-	"github.com/Avgys/go-url-shortener-server/internal/model/requests"
-	"github.com/Avgys/go-url-shortener-server/internal/model/responses"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
 	"github.com/rs/zerolog"
+	"go-url-shortener/internal/auth/jwttoken"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/service"
+	shared "go-url-shortener/internal/shared/http"
 )
 
 func getBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {

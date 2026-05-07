@@ -1,18 +1,18 @@
-APP_NAME := gophermart
+APP_NAME := shortener
 CMD_DIR := .
 
 COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
 
-GOLANGCI_IMAGE := gophermart-golangci
+GOLANGCI_IMAGE := ${APP_NAME}-golangci
 
 .PHONY: all build run test lint tidy clean sqlc accrual docker-local docker-local-rebuild lint-docker
 
 sqlc:
 	sqlc generate -f sqlc/sqlc.yaml
 build:
-	go build $(CMD_DIR)/cmd/gophermart/main.go
+	go build $(CMD_DIR)/cmd/${APP_NAME}/main.go
 run:
-	go run $(CMD_DIR)/cmd/gophermart/main.go
+	go run $(CMD_DIR)/cmd/${APP_NAME}/main.go
 accrual:
 	./cmd/accrual/accrual_windows_amd64.exe
 lint:
@@ -30,7 +30,7 @@ docker-local:
 
 # Recompile Go inside Docker from scratch (no cache), then start — use when you want a clean image every time.
 docker-local-rebuild:
-	$(COMPOSE_LOCAL) build --no-cache gophermart accrual
+	$(COMPOSE_LOCAL) build --no-cache ${APP_NAME} accrual
 	$(COMPOSE_LOCAL) up -d
 
 tests:

@@ -46,8 +46,7 @@ func NewRequestLogger(ctx context.Context, spanID int64) (*zerolog.Logger, func(
 	return &wrappedLog, close, nil
 }
 
-func FromContext(ctx context.Context) *zerolog.Logger {
-	funcName := callerFuncName(defaultFuncNameDepth)
+func FromContext(ctx context.Context, funcName string) *zerolog.Logger {
 
 	logWithFnName := zerolog.Ctx(ctx).With().Str(funcNameTag, funcName).Logger()
 	return &logWithFnName
@@ -66,8 +65,8 @@ func Middleware(ctx context.Context, name string) (*zerolog.Logger, func() error
 	return &wrappedLog, close, nil
 }
 
-func callerFuncName(callLevel int) string {
-	pc, _, _, ok := runtime.Caller(callLevel)
+func GetFuncName() string {
+	pc, _, _, ok := runtime.Caller(1)
 	if !ok {
 		return "?"
 	}

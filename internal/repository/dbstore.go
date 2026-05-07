@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/db"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
+	"go-url-shortener/internal/db"
+	"go-url-shortener/internal/model"
 )
 
 type DBStore struct {
