@@ -21,14 +21,22 @@ type Repository interface {
 	Close() error
 }
 
-func NewRepository(ctx context.Context, cfg *config.Config, logger *zerolog.Logger) (Repository, error) {
+func NewRepository(done context.Context, cfg *config.Config, logger *zerolog.Logger) (Repository, error) {
 
 	if cfg.DBConnectionString != "" {
-		return NewDBStore(ctx, &db.Config{ConnectionString: cfg.DBConnectionString}, logger)
+
+		//Db
+		dbConnection, err := db.NewDB(done, &db.Config{ConnectionString: cfg.DBConnectionString})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return NewURLRepository(done, dbConnection, logger)
 	}
 
 	if cfg.FileStoragePath != "" {
-		return NewFileStore(ctx, cfg.FileStoragePath, logger)
+		return NewFileStore(done, cfg.FileStoragePath, logger)
 	}
 
 	return NewInMemoryStore(nil), nil

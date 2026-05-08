@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/rs/zerolog"
 	"go-url-shortener/internal/config"
-	"go-url-shortener/internal/db"
 	"go-url-shortener/internal/handler"
 	"go-url-shortener/internal/repository"
 	"go-url-shortener/internal/router"
 	"go-url-shortener/internal/service"
+
+	"github.com/rs/zerolog"
 )
 
-func GetServer(done context.Context, traceLogger *zerolog.Logger) (*http.Server, error) {
+func NewServer(done context.Context, traceLogger *zerolog.Logger) (*http.Server, error) {
 
 	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
 
@@ -44,9 +44,6 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 
 	closers := make([]io.Closer, 0)
 
-	//Db
-	dbConnection, err := db.NewDB(done, &db.Config{ConnectionString: cfg.DBConnectionString})
-
 	closers = append(closers, dbConnection)
 
 	go func() {
@@ -64,7 +61,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 		return nil, err
 	}
 
-	store, err := repository.NewRepository(done, cfg, traceLogger)
+	store, err, close := repository.NewRepository(done, cfg, traceLogger)
 
 	if err != nil {
 		err = fmt.Errorf("error initializing repository: %w", err)

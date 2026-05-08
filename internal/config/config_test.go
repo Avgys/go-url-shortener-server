@@ -31,7 +31,7 @@ func TestParseFlags(t *testing.T) {
 	err := parseFlags(cfg, []string{"-a", "localhost:8080", "-d", "db", "-r", "http://accrual"})
 	require.NoError(t, err)
 
-	assert.Equal(t, "localhost:8080", cfg.AppAddr)
+	assert.Equal(t, "localhost:8080", cfg.AppURL)
 	assert.Equal(t, "db", cfg.DBConnectionString)
 	assert.Equal(t, "http://accrual", cfg.AccrualSystemAddr)
 }

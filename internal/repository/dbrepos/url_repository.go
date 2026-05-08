@@ -1,4 +1,4 @@
-package repository
+package dbrepos
 
 import (
 	"context"
@@ -7,63 +7,36 @@ import (
 	"strings"
 	"time"
 
+	"go-url-shortener/internal/db"
+	"go-url-shortener/internal/model"
+	urlsrepository "go-url-shortener/sqlc/url"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
-	"go-url-shortener/internal/db"
-	"go-url-shortener/internal/model"
 )
 
 type DBStore struct {
-	db *db.DB
+	queries *urlsrepository.Queries
+	logger  *zerolog.Logger
 }
 
 const dbOpTimeout = 1 * time.Second
 
-func NewDBStore(ctx context.Context, dbConfig *db.Config, logger *zerolog.Logger) (*DBStore, error) {
-	dbConnection, err := db.NewDB(ctx, dbConfig)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &DBStore{db: dbConnection}, nil
+func NewURLRepository(ctx context.Context, db *db.DB, logger *zerolog.Logger) *DBStore {
+	queries := urlsrepository.New(db.Pool)
+	return &DBStore{queries: queries, logger: logger}
 }
 
 func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
-	const queryTmp = `
-		SELECT id, short_url, long_url, created_at, deleted_at_utc
-		FROM public.urls 
-		WHERE short_url = $1`
-
-	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
-	defer cancel()
-
-	row := s.db.Pool.QueryRow(ctxTimeout, queryTmp, shortURL)
-
-	var dbVal model.DBURL
-
-	err := row.Scan(&dbVal.ID, &dbVal.ShortURL, &dbVal.OriginalURL, &dbVal.CreatedAt, &dbVal.DeletedAtUTC)
+	row, err := s.queries.GetURLByShortURL(ctx, shortURL)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.DBURL{}, ErrNotFound
-		}
-
-		return model.DBURL{}, fmt.Errorf("failed to scan a response row: %w", err)
+		return model.DBURL{}, err
 	}
 
-	return dbVal, nil
-}
-
-func (s *DBStore) TestConnection(ctx context.Context) error {
-	return s.db.Ping(ctx)
-}
-
-func (s *DBStore) Close() error {
-	s.db.Close()
-	return nil
+	return row, nil
 }
 
 func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
@@ -173,15 +146,10 @@ func (s *DBStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID 
 }
 
 func (s *DBStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
-	const queryTmp = `
-		SELECT id, short_url, long_url, created_at, user_id, deleted_at_utc
-		FROM urls 
-		WHERE user_id = $1`
+	rows, err := s.queries.GetURLByShortURL(ctx, userID)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)
 	defer cancel()
-
-	rows, err := s.db.Pool.Query(ctxTimeout, queryTmp, userID)
 
 	if err != nil {
 		return nil, fmt.Errorf("rows error: %w", err)

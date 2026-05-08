@@ -12,7 +12,7 @@ import (
 var funcNameTag string = "func_name_tag"
 var defaultFuncNameDepth = 2
 
-func newBaseLogger() (*zerolog.Logger, func() error, error) {
+func NewBaseLogger(funcName string) (*zerolog.Logger, func() error, error) {
 
 	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 
@@ -31,7 +31,7 @@ func newBaseLogger() (*zerolog.Logger, func() error, error) {
 
 func NewRequestLogger(ctx context.Context, spanID int64) (*zerolog.Logger, func() error, error) {
 
-	log, close, err := newBaseLogger()
+	log, close, err := NewBaseLogger()
 
 	if err != nil {
 		return nil, nil, err
@@ -54,7 +54,7 @@ func FromContext(ctx context.Context, funcName string) *zerolog.Logger {
 
 func Middleware(ctx context.Context, name string) (*zerolog.Logger, func() error, error) {
 
-	log, close, err := newBaseLogger()
+	log, close, err := NewBaseLogger()
 
 	if err != nil {
 		return nil, nil, err

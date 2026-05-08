@@ -1,27 +1,10 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "./user/user_query.sql"
-    schema: "../migrations/sql/000001_create_user_table.up.sql"
+    queries: "./url/url_query.sql"
+    schema: "../migrations/000001_create_table.up.sql"
     gen:
       go:
-        package: "userrepository"
-        out: "user"
-        sql_package: "pgx/v5"
-  - engine: "postgresql"
-    queries: "./order/order_query.sql"
-    schema: "../migrations/sql/000002_create_order_table.up.sql"
-    gen:
-      go:
-        package: "orderrepository"
-        out: "order"
-        sql_package: "pgx/v5"
-  - engine: "postgresql"
-    queries: "./balance/balance_query.sql"
-    schema:
-      - "../migrations/sql/000003_create_balance_table.up.sql"
-    gen:
-      go:
-        package: "balancerepository"
-        out: "balance"
+        package: "urlsrepository"
+        out: "url"
         sql_package: "pgx/v5"

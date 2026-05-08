@@ -24,8 +24,13 @@ const (
 
 func main() {
 
-	log, closeLogger := logger.NewLogger()
-	defer closeLogger()
+	log, closeLogger, err := logger.NewBaseLogger(logger.GetFuncName())
+	if err != nil {
+		fmt.Println("failed to create logger", err)
+		panic(err)
+	}
+
+	defer func() { _ = closeLogger() }()
 
 	if err := run(log); err != nil {
 		log.Fatal().Err(err).Send()
@@ -39,13 +44,9 @@ func run(log *zerolog.Logger) error {
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	defer stop()
 
-	*log = log.With().
-		Str("component", "initialize").
-		Logger()
-
 	g, ctx := errgroup.WithContext(rootCtx)
 
-	srv, err := server.GetServer(ctx, log)
+	srv, err := server.NewServer(ctx, log)
 
 	if err != nil {
 		return err

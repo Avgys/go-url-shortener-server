@@ -12,10 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/stretchr/testify/require"
 	"go-url-shortener/internal/repository"
 	repositorydb "go-url-shortener/internal/repository/db"
 	"go-url-shortener/internal/testcommon"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
@@ -46,7 +47,7 @@ func Test_handlers_CreateShortURLAndReadDbStorage(t *testing.T) {
 		prePool.Close()
 	})
 
-	store, err := repository.NewDBStore(ctx, &repositorydb.Config{ConnectionString: dsn}, nil)
+	store, err := repository.NewURLRepository(ctx, &repositorydb.Config{ConnectionString: dsn}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		err := store.Close()

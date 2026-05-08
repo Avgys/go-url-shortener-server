@@ -1,0 +1,22 @@
+name: golangci-lint
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build linter image
+        run: docker build -f docker/golangci-lint/Dockerfile -t gophermart-golangci docker/golangci-lint
+
+      - name: Run golangci-lint
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src gophermart-golangci

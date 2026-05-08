@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"go-url-shortener/internal/model"
 	db_model "go-url-shortener/internal/model/db"
 	"go-url-shortener/internal/model/responses"
 	"go-url-shortener/internal/repository"
@@ -30,7 +29,7 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 
 	dbURLs = lo.Filter(dbURLs, func(h db_model.DBURL, _ int) bool { return h.DeletedAtUTC == nil })
 
-	urls := lo.Map(dbURLs, func(dbURL model.DBURL, _ int) responses.URLPair {
+	urls := lo.Map(dbURLs, func(dbURL db_model.DBURL, _ int) responses.URLPair {
 		link, _ := url.JoinPath(s.redirectAddr.String(), dbURL.ShortURL)
 		return responses.URLPair{ShortURL: link, OriginalURL: dbURL.OriginalURL}
 	})
