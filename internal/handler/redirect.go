@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"go-url-shortener/internal/auth/jwttoken"
 	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/service/auth"
 	httphelper "go-url-shortener/internal/shared/http"
 	shared "go-url-shortener/internal/shared/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	traceLogger := logger.Endpoint(ctx, "Redirect")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
 	url := chi.URLParam(r, "url")
 	dbURL, err := h.Shortifier.ResolveShortURL(ctx, url, traceLogger)
@@ -24,26 +25,28 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", dbURL.OriginalURL)
-	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
+	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)
 }
 
 func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	traceLogger := logger.Endpoint(ctx, "GetURLsByUserID")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	claims, err := jwttoken.GetClaims(ctx)
+	claims, err := auth.GetFromContext(ctx)
 
 	if err != nil {
 		traceLogger.Err(err).Send()
 		err = shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if shared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	urls, err := h.Shortifier.GetURLsByUserID(ctx, claims.UserID, traceLogger)
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if shared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	var status int
@@ -56,5 +59,5 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, response, status)
+	shared.WriteResponse(w, response, status, traceLogger)
 }

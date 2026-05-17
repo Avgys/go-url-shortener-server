@@ -20,34 +20,20 @@ services:
       timeout: 5s
       retries: 5
 
-  accrual:
+  shortener:
     build:
       context: .
-      dockerfile: cmd/accrual/Dockerfile
+      dockerfile: cmd/shortener/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      RUN_ADDRESS: ${ACCRUAL_RUN_ADDRESS:-:8080}
-      DATABASE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
+      SERVER_ADDRESS: ${RUN_ADDRESS:-:8080}
+      DATABASE_DSN: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
+      BASE_URL: ${REDIRECT_DOMAIN:-http://localhost:8080}
+      FILE_STORAGE_PATH: ${FILE_STORAGE_PATH:-./storage}
     ports:
-      - "${ACCRUAL_PORT:-8081}:8080"
-
-  gophermart:
-    build:
-      context: .
-      dockerfile: cmd/gophermart/Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-      accrual:
-        condition: service_started
-    environment:
-      RUN_ADDRESS: ${RUN_ADDRESS:-:8080}
-      DATABASE_URI: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
-      ACCRUAL_SYSTEM_ADDRESS: ${ACCRUAL_SYSTEM_ADDRESS:-http://accrual:8080}
-    ports:
-      - "${GOPHERMART_PORT:-8080}:8080"
+      - "${SHORTENER_PORT:-8080}:8080"
 
 volumes:
   postgres_data:

@@ -2,15 +2,14 @@ package middlewares
 
 import (
 	"fmt"
-	"internal/logger"
-	"internal/middlewares/compress"
 	"net/http"
 
-	httpShared "internal/shared/http"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/middlewares/compress"
+	httpShared "go-url-shortener/internal/shared/http"
 )
 
 func WithCompression(h http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		traceLogger, close, err := logger.Middleware(r.Context(), "compress")

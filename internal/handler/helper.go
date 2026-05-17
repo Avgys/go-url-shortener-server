@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/rs/zerolog"
-	"go-url-shortener/internal/auth/jwttoken"
 	"go-url-shortener/internal/model/requests"
 	"go-url-shortener/internal/model/responses"
-	"go-url-shortener/internal/service"
+	"go-url-shortener/internal/service/auth"
+	"go-url-shortener/internal/service/shortifier"
 	shared "go-url-shortener/internal/shared/http"
+
+	"github.com/rs/zerolog"
 )
 
 func getBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
@@ -54,18 +55,18 @@ func getShortURL(h *Handlers, url string, traceLogger *zerolog.Logger, r *http.R
 func shortenBatch(h *Handlers, batch requests.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*responses.ShortenBatchResp, error) {
 
 	ctx := r.Context()
-	claims, err := jwttoken.GetClaims(ctx)
+	claims, err := auth.GetFromContext(ctx)
 
 	if err != nil {
 		showErr := shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
 		return nil, fmt.Errorf("%w inner error: %w", showErr, err)
 	}
 
-	serviceReq := &service.ShortenBatchReq{URLs: batch, UserID: claims.UserID}
+	serviceReq := &shortifier.ShortenBatchReq{URLs: batch, UserID: claims.UserID}
 	resultURL, err := h.Shortifier.ShortifyBatch(r.Context(), serviceReq, traceLogger)
 
 	if err != nil {
-		if errors.Is(err, service.ErrCollision) {
+		if errors.Is(err, shortifier.ErrCollision) {
 			err = shared.NewError(err.Error(), http.StatusTooManyRequests)
 		}
 

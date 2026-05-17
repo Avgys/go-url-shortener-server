@@ -31,7 +31,7 @@ func NewBaseLogger(funcName string) (*zerolog.Logger, func() error, error) {
 
 func NewRequestLogger(ctx context.Context, spanID int64) (*zerolog.Logger, func() error, error) {
 
-	log, close, err := NewBaseLogger()
+	log, close, err := NewBaseLogger(GetFuncName())
 
 	if err != nil {
 		return nil, nil, err
@@ -54,7 +54,7 @@ func FromContext(ctx context.Context, funcName string) *zerolog.Logger {
 
 func Middleware(ctx context.Context, name string) (*zerolog.Logger, func() error, error) {
 
-	log, close, err := NewBaseLogger()
+	log, close, err := NewBaseLogger(name)
 
 	if err != nil {
 		return nil, nil, err

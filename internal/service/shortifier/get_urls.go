@@ -8,7 +8,7 @@ import (
 
 	db_model "go-url-shortener/internal/model/db"
 	"go-url-shortener/internal/model/responses"
-	"go-url-shortener/internal/repository"
+	repoerrors "go-url-shortener/internal/repository/errors"
 	httpShared "go-url-shortener/internal/shared/http"
 
 	"github.com/rs/zerolog"
@@ -19,7 +19,7 @@ func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLog
 
 	dbURLs, err := s.store.GetURLsByUserID(ctx, userID)
 
-	if err != nil && errors.Is(err, repository.ErrNotFound) {
+	if err != nil && errors.Is(err, repoerrors.ErrNotFound) {
 		traceLogger.Info().
 			Str("repository error", err.Error()).
 			Msg("urls not found in repository")

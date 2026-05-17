@@ -5,7 +5,10 @@ import (
 	"go-url-shortener/internal/logger"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/samber/lo"
 )
 
 type (
@@ -21,7 +24,6 @@ type (
 )
 
 func WithLogging(h http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		startTime := time.Now()
@@ -53,7 +55,14 @@ func WithLogging(h http.Handler) http.Handler {
 
 		defer func() { _ = close() }()
 
+		cookies := lo.Map(r.Cookies(), func(cookie *http.Cookie, _ int) string {
+			return cookie.Name
+		})
+
+		cookiesJoin := strings.Join(cookies, ", ")
+
 		log.Info().
+			Str("Cookies", cookiesJoin).
 			Str("Path", r.RequestURI).
 			Str("Method", r.Method).
 			Str("Content-type", r.Header.Get("Content-type")).

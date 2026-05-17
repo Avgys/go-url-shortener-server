@@ -30,7 +30,7 @@ docker-local:
 
 # Recompile Go inside Docker from scratch (no cache), then start — use when you want a clean image every time.
 docker-local-rebuild:
-	$(COMPOSE_LOCAL) build --no-cache ${APP_NAME} accrual
+	$(COMPOSE_LOCAL) build --no-cache ${APP_NAME}
 	$(COMPOSE_LOCAL) up -d
 
 tests:

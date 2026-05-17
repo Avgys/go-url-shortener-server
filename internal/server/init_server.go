@@ -12,6 +12,7 @@ import (
 	"go-url-shortener/internal/repository"
 	"go-url-shortener/internal/router"
 	"go-url-shortener/internal/service"
+	"go-url-shortener/internal/service/shortifier"
 
 	"github.com/rs/zerolog"
 )
@@ -44,8 +45,6 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 
 	closers := make([]io.Closer, 0)
 
-	closers = append(closers, dbConnection)
-
 	go func() {
 		<-done.Done()
 
@@ -56,21 +55,22 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 		}
 	}()
 
+	store, err := repository.NewRepository(done, cfg, traceLogger)
+
 	if err != nil {
-		err = fmt.Errorf("error initializing db: %w", err)
-		return nil, err
+		return nil, fmt.Errorf("error initializing repository: %w", err)
 	}
 
-	store, err, close := repository.NewRepository(done, cfg, traceLogger)
-
-	if err != nil {
-		err = fmt.Errorf("error initializing repository: %w", err)
-		return nil, err
+	if closer, ok := store.(io.Closer); ok {
+		closers = append(closers, closer)
 	}
 
 	generator := service.NewStringGenerator()
-	shortifier := service.NewShortifier(done, generator, store, &cfg.RedirectDomain)
-	h := handler.NewHandlers(shortifier, store)
+	shortifierService, err := shortifier.NewShortifier(done, generator, store, &cfg.RedirectDomain)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing shortifier: %w", err)
+	}
+	h := handler.NewHandlers(shortifierService, store)
 
 	return h, nil
 }

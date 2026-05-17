@@ -5,19 +5,18 @@ import (
 
 	"go-url-shortener/internal/config"
 	"go-url-shortener/internal/db"
-	"go-url-shortener/internal/model"
+	dbmodel "go-url-shortener/internal/model/db"
+	repository "go-url-shortener/internal/repository/dbrepos"
 
 	"github.com/rs/zerolog"
 )
 
-type Full2ShortBatch map[string]string
-
 type Repository interface {
-	StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error)
-	ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error)
-	GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error)
+	StoreBatch(ctx context.Context, input map[string]string, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error)
+	ResolveShortURL(ctx context.Context, shortURL string) (dbmodel.DBURL, error)
+	GetURLsByUserID(ctx context.Context, userID int64) ([]dbmodel.DBURL, error)
 	TestConnection(ctx context.Context) error
-	DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error)
+	DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]dbmodel.DBURL, error)
 	Close() error
 }
 
@@ -32,7 +31,7 @@ func NewRepository(done context.Context, cfg *config.Config, logger *zerolog.Log
 			return nil, err
 		}
 
-		return NewURLRepository(done, dbConnection, logger)
+		return repository.NewURLRepository(done, dbConnection, logger), nil
 	}
 
 	if cfg.FileStoragePath != "" {

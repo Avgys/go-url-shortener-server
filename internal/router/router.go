@@ -22,11 +22,11 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
-	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
+	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithLogging, middlewares.WithCompression)
 
 	r.Group(func(r chi.Router) {
 
-		r.Use(middlewares.AuthRequireCookie, middlewares.SetCookie)
+		r.Use(middlewares.SetCookie)
 		r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
 
 		r.Group(func(r chi.Router) {
@@ -38,13 +38,12 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth_middlewares.SetCookie, auth_middlewares.RequireCookie)
+		r.Use(middlewares.SetCookie, middlewares.AuthRequireCookie)
 
 		r.Route("/api/user", func(r chi.Router) {
 			r.Get("/urls", h.GetURLsByUserID)
 			r.With(middleware.AllowContentType(jsonType)).Delete("/urls", h.DeleteShortURL)
 		})
-
 	})
 
 	r.Get("/{url}", h.Redirect)

@@ -7,8 +7,7 @@ import (
 )
 
 func Recoverer(next http.Handler) http.Handler {
-
-	fn := func(writer http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
 
 		traceLogger := logger.FromContext(req.Context(), logger.GetFuncName())
 
@@ -26,7 +25,5 @@ func Recoverer(next http.Handler) http.Handler {
 		}()
 
 		next.ServeHTTP(writer, req)
-	}
-
-	return http.HandlerFunc(fn)
+	})
 }

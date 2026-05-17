@@ -5,33 +5,35 @@ import (
 	"sync"
 	"time"
 
+	dbmodel "go-url-shortener/internal/model/db"
+	repoerrors "go-url-shortener/internal/repository/errors"
+
 	"github.com/samber/lo"
-	"go-url-shortener/internal/model"
 )
 
-type storage map[string]*model.DBURL
+type storage map[string]*dbmodel.DBURL
 
 type InMemoryStore struct {
 	shortURLToModel storage
 	mux             sync.RWMutex
 }
 
-func NewInMemoryStore(initData []*model.DBURL) *InMemoryStore {
+func NewInMemoryStore(initData []*dbmodel.DBURL) *InMemoryStore {
 
-	mappedURLs := lo.Associate(initData, func(item *model.DBURL) (string, *model.DBURL) { return item.ShortURL, item })
+	mappedURLs := lo.Associate(initData, func(item *dbmodel.DBURL) (string, *dbmodel.DBURL) { return item.ShortURL, item })
 	s := &InMemoryStore{shortURLToModel: mappedURLs}
 
 	return s
 }
 
-func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
+func (s *InMemoryStore) StoreBatch(ctx context.Context, input map[string]string, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	alreadyExists = make(map[string]string)
 	retryToInsert = make([]string, 0)
 
-	maxURLID := lo.MaxBy(lo.Values(s.shortURLToModel), func(a *model.DBURL, b *model.DBURL) bool { return a.ID > b.ID })
+	maxURLID := lo.MaxBy(lo.Values(s.shortURLToModel), func(a *dbmodel.DBURL, b *dbmodel.DBURL) bool { return a.ID > b.ID })
 
 	var maxID = 0
 
@@ -46,12 +48,12 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 			continue
 		}
 
-		if value, ok := lo.FindKeyBy(s.shortURLToModel, func(_ string, value *model.DBURL) bool { return value.OriginalURL == originURL }); ok {
+		if value, ok := lo.FindKeyBy(s.shortURLToModel, func(_ string, value *dbmodel.DBURL) bool { return value.OriginalURL == originURL }); ok {
 			alreadyExists[originURL] = value
 			continue
 		}
 
-		s.shortURLToModel[shortURL] = &model.DBURL{
+		s.shortURLToModel[shortURL] = &dbmodel.DBURL{
 			ShortURL:     shortURL,
 			OriginalURL:  originURL,
 			UserID:       userID,
@@ -66,14 +68,14 @@ func (s *InMemoryStore) StoreBatch(ctx context.Context, input Full2ShortBatch, u
 	return
 }
 
-func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
+func (s *InMemoryStore) ResolveShortURL(ctx context.Context, shortURL string) (dbmodel.DBURL, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
 	url, ok := s.shortURLToModel[shortURL]
 
 	if !ok {
-		return model.DBURL{}, ErrNotFound
+		return dbmodel.DBURL{}, repoerrors.ErrNotFound
 	}
 
 	return *url, nil
@@ -87,19 +89,19 @@ func (s *InMemoryStore) Close() error {
 	return nil
 }
 
-func (s *InMemoryStore) getAll() []model.DBURL {
+func (s *InMemoryStore) getAll() []dbmodel.DBURL {
 	defer s.mux.RUnlock()
 	s.mux.RLock()
 
 	values := lo.Values(s.shortURLToModel)
-	return lo.Map(values, func(item *model.DBURL, _ int) model.DBURL { return *item })
+	return lo.Map(values, func(item *dbmodel.DBURL, _ int) dbmodel.DBURL { return *item })
 }
 
-func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
+func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]dbmodel.DBURL, error) {
 
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	result := make([]model.DBURL, 0)
+	result := make([]dbmodel.DBURL, 0)
 
 	for _, v := range s.shortURLToModel {
 
@@ -112,14 +114,14 @@ func (s *InMemoryStore) GetURLsByUserID(ctx context.Context, userID int64) ([]mo
 	return result, nil
 }
 
-func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
+func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]dbmodel.DBURL, error) {
 
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	utcNow := time.Now().UTC()
 
-	recordUpdate := make([]model.DBURL, 0)
+	recordUpdate := make([]dbmodel.DBURL, 0)
 
 	for userID, urls := range groupedByUser {
 		for _, url := range urls {

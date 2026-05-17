@@ -1,10 +1,11 @@
+//go:build ignore
+
 package auth
 
 import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"go-url-shortener/internal/model"
 	"go-url-shortener/internal/model/requests"
 	"go-url-shortener/internal/repository"
 	"go-url-shortener/internal/service/generator"

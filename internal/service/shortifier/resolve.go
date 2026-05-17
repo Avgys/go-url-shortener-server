@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/rs/zerolog"
-	"go-url-shortener/internal/model"
-	"go-url-shortener/internal/repository"
+	dbmodel "go-url-shortener/internal/model/db"
+	repoerrors "go-url-shortener/internal/repository/errors"
 	httpShared "go-url-shortener/internal/shared/http"
+
+	"github.com/rs/zerolog"
 )
 
-func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*model.DBURL, error) {
+func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*dbmodel.DBURL, error) {
 
 	shortURL := strings.TrimSpace(inputURL)
 
@@ -20,7 +21,7 @@ func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, trace
 
 	if err != nil {
 
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, repoerrors.ErrNotFound) {
 			traceLogger.Info().
 				Str("repository error", err.Error()).
 				Msg("url not found in repository")

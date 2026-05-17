@@ -12,7 +12,7 @@ import (
 )
 
 const getURLByShortURL = `-- name: GetURLByShortURL :one
-SELECT id, short_url, long_url, created_at, deleted_at_utc
+SELECT id, short_url, long_url, created_at, user_id, deleted_at_utc
 FROM urls
 WHERE short_url = $1
 LIMIT 1
@@ -23,6 +23,7 @@ type GetURLByShortURLRow struct {
 	ShortUrl     string
 	LongUrl      string
 	CreatedAt    pgtype.Timestamp
+	UserID       pgtype.Int8
 	DeletedAtUtc pgtype.Timestamp
 }
 
@@ -34,18 +35,19 @@ func (q *Queries) GetURLByShortURL(ctx context.Context, shortUrl string) (GetURL
 		&i.ShortUrl,
 		&i.LongUrl,
 		&i.CreatedAt,
+		&i.UserID,
 		&i.DeletedAtUtc,
 	)
 	return i, err
 }
 
-const listURLsByUserID = `-- name: ListURLsByUserID :many
+const getURLsByUserID = `-- name: GetURLsByUserID :many
 SELECT id, short_url, long_url, created_at, user_id, deleted_at_utc
 FROM urls
 WHERE user_id = $1
 `
 
-type ListURLsByUserIDRow struct {
+type GetURLsByUserIDRow struct {
 	ID           int32
 	ShortUrl     string
 	LongUrl      string
@@ -54,15 +56,15 @@ type ListURLsByUserIDRow struct {
 	DeletedAtUtc pgtype.Timestamp
 }
 
-func (q *Queries) ListURLsByUserID(ctx context.Context, userID pgtype.Int8) ([]ListURLsByUserIDRow, error) {
-	rows, err := q.db.Query(ctx, listURLsByUserID, userID)
+func (q *Queries) GetURLsByUserID(ctx context.Context, userID pgtype.Int8) ([]GetURLsByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, getURLsByUserID, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListURLsByUserIDRow
+	var items []GetURLsByUserIDRow
 	for rows.Next() {
-		var i ListURLsByUserIDRow
+		var i GetURLsByUserIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ShortUrl,
@@ -70,6 +72,53 @@ func (q *Queries) ListURLsByUserID(ctx context.Context, userID pgtype.Int8) ([]L
 			&i.CreatedAt,
 			&i.UserID,
 			&i.DeletedAtUtc,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const storeBatchUrls = `-- name: StoreBatchUrls :many
+SELECT
+  CAST(f.short_url AS text) AS short_url,
+  CAST(f.long_url AS text) AS long_url,
+  CAST(f.stored_short_url AS text) AS stored_short_url,
+  CAST(f.retry AS boolean) AS retry
+FROM LATERAL public.store_batch_urls($1::text[], $2::text[], $3) AS f(short_url, long_url, stored_short_url, retry)
+`
+
+type StoreBatchUrlsParams struct {
+	LongUrls  []string
+	ShortUrls []string
+	UserID    int64
+}
+
+type StoreBatchUrlsRow struct {
+	ShortUrl       string
+	LongUrl        string
+	StoredShortUrl string
+	Retry          bool
+}
+
+func (q *Queries) StoreBatchUrls(ctx context.Context, arg StoreBatchUrlsParams) ([]StoreBatchUrlsRow, error) {
+	rows, err := q.db.Query(ctx, storeBatchUrls, arg.LongUrls, arg.ShortUrls, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StoreBatchUrlsRow
+	for rows.Next() {
+		var i StoreBatchUrlsRow
+		if err := rows.Scan(
+			&i.ShortUrl,
+			&i.LongUrl,
+			&i.StoredShortUrl,
+			&i.Retry,
 		); err != nil {
 			return nil, err
 		}

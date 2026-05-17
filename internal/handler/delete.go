@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"go-url-shortener/internal/auth/jwttoken"
+	"go-url-shortener/internal/service/auth"
 	"go-url-shortener/internal/logger"
 	httphelper "go-url-shortener/internal/shared/http"
 	shared "go-url-shortener/internal/shared/http"
@@ -13,7 +13,7 @@ func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	claims, err := jwttoken.GetClaims(ctx)
+	claims, err := auth.GetFromContext(ctx)
 
 	if err != nil {
 		traceLogger.Err(err).Send()

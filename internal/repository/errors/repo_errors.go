@@ -1,8 +1,6 @@
-package repository
+package repoerrors
 
-import (
-	"errors"
-)
+import "errors"
 
 var (
 	ErrCollision = errors.New("slot in dictionary taken")
