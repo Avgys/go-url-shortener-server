@@ -7,7 +7,6 @@ import (
 	"go-url-shortener/internal/logger"
 	"go-url-shortener/internal/service/auth"
 	httphelper "go-url-shortener/internal/shared/http"
-	shared "go-url-shortener/internal/shared/http"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -25,7 +24,7 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Location", dbURL.OriginalURL)
-	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)
+	httphelper.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)
 }
 
 func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
@@ -36,15 +35,15 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		traceLogger.Err(err).Send()
-		err = shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
-		if shared.HandleErr(w, r, err, traceLogger) {
+		err = httphelper.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		if httphelper.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
 	urls, err := h.Shortifier.GetURLsByUserID(ctx, claims.UserID, traceLogger)
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httphelper.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
@@ -59,5 +58,5 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, response, status, traceLogger)
+	httphelper.WriteResponse(w, response, status, traceLogger)
 }

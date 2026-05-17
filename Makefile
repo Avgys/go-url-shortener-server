@@ -19,9 +19,10 @@ lint:
 	go vet ./...
 
 # golangci-lint in Docker (mounts repo; uses docker/golangci-lint/Dockerfile).
+# Do not pass -w /src: Git Bash on Windows rewrites it to C:/Program Files/Git/src.
 lint-docker:
 	docker build -f docker/golangci-lint/Dockerfile -t $(GOLANGCI_IMAGE) docker/golangci-lint
-	docker run --rm -v "$(CURDIR):/src" -w /src $(GOLANGCI_IMAGE)
+	docker run --rm -v "$(CURDIR):/src" $(GOLANGCI_IMAGE)
 tidy:
 	go mod tidy
 # Start stack; rebuild app images when Dockerfiles / context change (uses layer cache).

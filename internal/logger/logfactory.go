@@ -10,7 +10,6 @@ import (
 )
 
 var funcNameTag string = "func_name_tag"
-var defaultFuncNameDepth = 2
 
 func NewBaseLogger(funcName string) (*zerolog.Logger, func() error, error) {
 

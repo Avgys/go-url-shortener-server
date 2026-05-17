@@ -82,7 +82,7 @@ func (s *HandlerSuite) Test_handlers_CreateShortURLAndReadDbStorage() {
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
 			resBody, err := io.ReadAll(res.Body)
-			res.Body.Close()
+			_ = res.Body.Close()
 
 			s.Require().NoError(err)
 			s.Equal(http.StatusCreated, res.StatusCode)
@@ -93,7 +93,7 @@ func (s *HandlerSuite) Test_handlers_CreateShortURLAndReadDbStorage() {
 			recorder = httptest.NewRecorder()
 			r.ServeHTTP(recorder, req)
 			res = recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})

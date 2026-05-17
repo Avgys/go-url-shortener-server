@@ -5,7 +5,6 @@ import (
 
 	"go-url-shortener/internal/logger"
 	httphelper "go-url-shortener/internal/shared/http"
-	shared "go-url-shortener/internal/shared/http"
 )
 
 func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
@@ -18,5 +17,5 @@ func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.WriteResponse(w, nil, http.StatusOK, traceLogger)
+	httphelper.WriteResponse(w, nil, http.StatusOK, traceLogger)
 }

@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build linter image
-        run: docker build -f docker/golangci-lint/Dockerfile -t gophermart-golangci docker/golangci-lint
+        run: docker build -f docker/golangci-lint/Dockerfile -t url-shortener-golangci docker/golangci-lint
 
       - name: Run golangci-lint
-        run: docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src gophermart-golangci
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/src" url-shortener-golangci

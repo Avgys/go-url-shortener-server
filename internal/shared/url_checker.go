@@ -28,7 +28,6 @@ func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
 		if !strings.Contains(s, "://") {
 			if p2, err2 := url.Parse("//" + s); err2 == nil {
 				parsed = p2
-				err = nil
 			} else {
 				// Fall back to original error if alternative parse fails
 				return parsed, err2

@@ -3,10 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"go-url-shortener/internal/service/auth"
 	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/service/auth"
 	httphelper "go-url-shortener/internal/shared/http"
-	shared "go-url-shortener/internal/shared/http"
 )
 
 func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
@@ -17,7 +16,7 @@ func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		traceLogger.Err(err).Send()
-		err = shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		err = httphelper.NewError("unauthorized/broken token", http.StatusUnauthorized)
 
 		if httphelper.HandleErr(w, r, err, traceLogger) {
 			return
@@ -38,5 +37,5 @@ func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.WriteResponse(w, nil, http.StatusAccepted, traceLogger)
+	httphelper.WriteResponse(w, nil, http.StatusAccepted, traceLogger)
 }

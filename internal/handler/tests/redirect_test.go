@@ -54,7 +54,7 @@ func (s *HandlerSuite) Test_handlers_Redirect() {
 
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})

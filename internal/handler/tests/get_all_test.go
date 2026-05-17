@@ -39,7 +39,7 @@ func (s *HandlerSuite) Test_handlers_GetAll() {
 
 		res, err := client.Do(req)
 		s.Require().NoError(err)
-		res.Body.Close()
+		_ = res.Body.Close()
 
 		s.Equal(http.StatusCreated, res.StatusCode)
 	}
@@ -49,7 +49,7 @@ func (s *HandlerSuite) Test_handlers_GetAll() {
 
 	res, err := client.Do(req)
 	s.Require().NoError(err)
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	s.Equal(http.StatusOK, res.StatusCode)
 

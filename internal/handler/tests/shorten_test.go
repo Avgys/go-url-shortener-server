@@ -40,11 +40,9 @@ type HandlerSuite struct {
 var testHost = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
 
 type innerStructure struct {
-	store      repository.Repository
-	strGen     shortifier.StringGenerator
-	shortifier *shortifier.Shortifier
-	handlers   *handler.Handlers
-	config     *config.Config
+	store  repository.Repository
+	strGen shortifier.StringGenerator
+	config *config.Config
 }
 
 type mockStrGenSequence struct {
@@ -168,7 +166,7 @@ func (s *HandlerSuite) Test_handlers_ShortifyURL() {
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			//Check
 
@@ -210,7 +208,7 @@ func (s *HandlerSuite) Test_handlers_CreateShortURLAndRead() {
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
 			resBody, err := io.ReadAll(res.Body)
-			res.Body.Close()
+			_ = res.Body.Close()
 
 			s.Require().NoError(err)
 			s.Require().Equal(http.StatusCreated, res.StatusCode)
@@ -223,7 +221,7 @@ func (s *HandlerSuite) Test_handlers_CreateShortURLAndRead() {
 			recorder = httptest.NewRecorder()
 			r.ServeHTTP(recorder, req)
 			res = recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
@@ -312,7 +310,7 @@ func (s *HandlerSuite) Test_handlers_ShortenURL() {
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			//Check
 
@@ -423,7 +421,7 @@ func (s *HandlerSuite) Test_handlers_ShortenBatch() {
 
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
@@ -457,7 +455,7 @@ func (s *HandlerSuite) Test_handlers_ShortenBatchResolveByCorrelation() {
 
 	r.ServeHTTP(recorder, req)
 	res := recorder.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	s.Require().Equal(http.StatusCreated, res.StatusCode)
 
@@ -478,7 +476,7 @@ func (s *HandlerSuite) Test_handlers_ShortenBatchResolveByCorrelation() {
 		resolveRecorder := httptest.NewRecorder()
 		r.ServeHTTP(resolveRecorder, resolveReq)
 		resolveRes := resolveRecorder.Result()
-		resolveRes.Body.Close()
+		_ = resolveRes.Body.Close()
 
 		s.Require().Equal(http.StatusTemporaryRedirect, resolveRes.StatusCode)
 		s.Require().Equal(original, resolveRes.Header.Get("Location"))
@@ -508,7 +506,7 @@ func (s *HandlerSuite) Test_handlers_ShortenDeleteRead() {	const workerCount = 1
 			if err != nil {
 				return err
 			}
-			resolveRes.Body.Close()
+			_ = resolveRes.Body.Close()
 
 			if resolveRes.StatusCode == http.StatusGone {
 				return nil
@@ -566,7 +564,7 @@ func (s *HandlerSuite) Test_handlers_ShortenDeleteRead() {	const workerCount = 1
 			if err != nil {
 				return err
 			}
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			if res.StatusCode != http.StatusCreated {
 				return fmt.Errorf("unexpected status %d", res.StatusCode)
@@ -621,7 +619,7 @@ func (s *HandlerSuite) Test_handlers_ShortenDeleteRead() {	const workerCount = 1
 			if err != nil {
 				return err
 			}
-			deleteRes.Body.Close()
+			_ = deleteRes.Body.Close()
 
 			if deleteRes.StatusCode != http.StatusAccepted {
 				return fmt.Errorf("unexpected delete status %d", deleteRes.StatusCode)

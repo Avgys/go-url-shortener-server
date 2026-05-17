@@ -53,7 +53,7 @@ func NewFileStore(ctx context.Context, filename string, logger *zerolog.Logger) 
 	go func() {
 		<-ctx.Done()
 
-		rep.Close()
+		_ = rep.Close()
 	}()
 
 	return rep, nil

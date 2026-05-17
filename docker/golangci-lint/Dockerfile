@@ -1,8 +1,8 @@
 # Build (small context — only this folder):
-#   docker build -f docker/golangci-lint/Dockerfile -t gophermart-golangci docker/golangci-lint
+#   docker build -f docker/golangci-lint/Dockerfile -t url-shortener-golangci docker/golangci-lint
 #
-# Run from repository root:
-#   docker run --rm -v "$PWD:/src" -w /src gophermart-golangci
+# Run from repository root (WORKDIR is already /src; avoid -w /src on Git Bash for Windows):
+#   docker run --rm -v "$(pwd):/src" url-shortener-golangci
 
 FROM golang:1.26-alpine
 

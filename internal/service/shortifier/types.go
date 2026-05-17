@@ -37,7 +37,6 @@ type storeInfo struct {
 }
 
 type Shortifier struct {
-	domain          string
 	store           repository.Repository
 	stringGenerator StringGenerator
 	redirectAddr    *flagvalues.NetAddress

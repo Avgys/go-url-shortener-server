@@ -114,7 +114,7 @@ func (s *ShortenerSuite) TestRouter() {
 	for _, tt := range testTable {
 		s.Run(tt.name, func() {
 			resp := s.doRequest(ts, tt.request)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			testcommon.CheckResponseFields(s.T(), resp, tt.want)
 		})
