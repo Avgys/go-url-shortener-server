@@ -6,10 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 )
 
-func TestGetEncodeType(t *testing.T) {
+func (s *CompressSuite) TestGetEncodeType() {
 	tests := []struct {
 		name           string
 		acceptEncoding string
@@ -28,89 +27,50 @@ func TestGetEncodeType(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		s.Run(test.name, func() {
 			got := getEncodeType(test.acceptEncoding)
-			if got != test.want {
-				t.Fatalf("getEncodeType(%q) = %q, want %q", test.acceptEncoding, got, test.want)
-			}
+			s.Equal(test.want, got)
 		})
 	}
 }
 
-func TestNewCompressWriter_NoEncoding(t *testing.T) {
+func (s *CompressSuite) TestNewCompressWriter_NoEncoding() {
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
 	writer, err := NewCompressWriter(recorder, req)
-	if err != nil {
-		t.Fatalf("NewCompressWriter error: %v", err)
-	}
-
-	if writer.EncodeWriter != nil {
-		t.Fatalf("expected nil EncodeWriter when no Accept-Encoding is provided")
-	}
+	s.Require().NoError(err)
+	s.Nil(writer.EncodeWriter)
 
 	_, err = writer.Write([]byte("hello"))
-	if err != nil {
-		t.Fatalf("Write error: %v", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		t.Fatalf("Close error: %v", err)
-	}
-
-	if got := recorder.Body.String(); got != "hello" {
-		t.Fatalf("response body = %q, want %q", got, "hello")
-	}
+	s.Require().NoError(err)
+	s.Require().NoError(writer.Close())
+	s.Equal("hello", recorder.Body.String())
 }
 
-func TestNewCompressWriter_Gzip(t *testing.T) {
+func (s *CompressSuite) TestNewCompressWriter_Gzip() {
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	req.Header.Set(acceptEncodingHeader, gzipType)
 
 	writer, err := NewCompressWriter(recorder, req)
-	if err != nil {
-		t.Fatalf("NewCompressWriter error: %v", err)
-	}
-
-	if writer.EncodeWriter == nil {
-		t.Fatalf("expected EncodeWriter when gzip is accepted")
-	}
-
-	if writer.EncodeType != gzipType {
-		t.Fatalf("EncodeType = %q, want %q", writer.EncodeType, gzipType)
-	}
+	s.Require().NoError(err)
+	s.NotNil(writer.EncodeWriter)
+	s.Equal(gzipType, writer.EncodeType)
 
 	_, err = writer.Write([]byte("hello"))
-	if err != nil {
-		t.Fatalf("Write error: %v", err)
-	}
+	s.Require().NoError(err)
+	s.Require().NoError(writer.Close())
 
-	if err := writer.Close(); err != nil {
-		t.Fatalf("Close error: %v", err)
-	}
-
-	if got := recorder.Header().Get(contentEncodingHeader); got != gzipType {
-		t.Fatalf("Content-Encoding = %q, want %q", got, gzipType)
-	}
+	s.Equal(gzipType, recorder.Header().Get(contentEncodingHeader))
 
 	gzr, err := gzip.NewReader(bytes.NewReader(recorder.Body.Bytes()))
-	if err != nil {
-		t.Fatalf("gzip.NewReader error: %v", err)
-	}
+	s.Require().NoError(err)
 	defer func() {
-		if err := gzr.Close(); err != nil {
-			t.Errorf("gzr.Close: %v", err)
-		}
+		s.Require().NoError(gzr.Close())
 	}()
 
 	decompressed, err := io.ReadAll(gzr)
-	if err != nil {
-		t.Fatalf("ReadAll error: %v", err)
-	}
-
-	if got := string(decompressed); got != "hello" {
-		t.Fatalf("decompressed body = %q, want %q", got, "hello")
-	}
+	s.Require().NoError(err)
+	s.Equal("hello", string(decompressed))
 }

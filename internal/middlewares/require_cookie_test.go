@@ -5,13 +5,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/suite"
 	"go-url-shortener/internal/service/auth"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRequireCookie_MissingCookie(t *testing.T) {
+func TestMiddlewaresSuite(t *testing.T) {
+	suite.Run(t, new(MiddlewaresSuite))
+}
+
+type MiddlewaresSuite struct {
+	suite.Suite
+}
+
+func (s *MiddlewaresSuite) TestRequireCookie_MissingCookie() {
 	called := false
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -22,11 +28,11 @@ func TestRequireCookie_MissingCookie(t *testing.T) {
 
 	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
-	assert.False(t, called)
-	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	s.False(called)
+	s.Equal(http.StatusUnauthorized, recorder.Code)
 }
 
-func TestRequireCookie_InvalidToken(t *testing.T) {
+func (s *MiddlewaresSuite) TestRequireCookie_InvalidToken() {
 	called := false
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
@@ -38,19 +44,19 @@ func TestRequireCookie_InvalidToken(t *testing.T) {
 
 	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
-	assert.False(t, called)
-	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+	s.False(called)
+	s.Equal(http.StatusUnauthorized, recorder.Code)
 }
 
-func TestRequireCookie_ValidToken(t *testing.T) {
+func (s *MiddlewaresSuite) TestRequireCookie_ValidToken() {
 	claims := auth.NewToken(1, "user")
 	tokenStr, err := claims.ToString()
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctxClaims, err := auth.GetFromContext(r.Context())
-		require.NoError(t, err)
-		require.Equal(t, int64(1), ctxClaims.UserID)
+		s.Require().NoError(err)
+		s.Equal(int64(1), ctxClaims.UserID)
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -60,7 +66,7 @@ func TestRequireCookie_ValidToken(t *testing.T) {
 
 	AuthRequireCookie(h).ServeHTTP(recorder, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
+	s.Equal(http.StatusOK, recorder.Code)
 
 	cookies := recorder.Result().Cookies()
 	found := false
@@ -70,5 +76,5 @@ func TestRequireCookie_ValidToken(t *testing.T) {
 			break
 		}
 	}
-	assert.True(t, found)
+	s.True(found)
 }

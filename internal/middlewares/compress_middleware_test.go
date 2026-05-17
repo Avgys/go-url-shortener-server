@@ -6,26 +6,20 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func gzipPayload(t *testing.T, data string) []byte {
-	t.Helper()
-
+func (s *MiddlewaresSuite) gzipPayload(data string) []byte {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	_, err := gz.Write([]byte(data))
-	require.NoError(t, err)
-	require.NoError(t, gz.Close())
+	s.Require().NoError(err)
+	s.Require().NoError(gz.Close())
 
 	return buf.Bytes()
 }
 
-func TestWithCompression_GzipRequest(t *testing.T) {
-	body := gzipPayload(t, "hello")
+func (s *MiddlewaresSuite) TestWithCompression_GzipRequest() {
+	body := s.gzipPayload("hello")
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
@@ -33,7 +27,7 @@ func TestWithCompression_GzipRequest(t *testing.T) {
 	var gotBody string
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		s.Require().NoError(err)
 		gotBody = string(data)
 		_, _ = w.Write([]byte("resp"))
 	})
@@ -41,11 +35,11 @@ func TestWithCompression_GzipRequest(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	WithCompression(h).ServeHTTP(recorder, req)
 
-	assert.Equal(t, "hello", gotBody)
-	assert.Equal(t, "resp", recorder.Body.String())
+	s.Equal("hello", gotBody)
+	s.Equal("resp", recorder.Body.String())
 }
 
-func TestWithCompression_DecodeError(t *testing.T) {
+func (s *MiddlewaresSuite) TestWithCompression_DecodeError() {
 	req := httptest.NewRequest(http.MethodPost, "http://example.com", bytes.NewReader([]byte("bad gzip")))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
@@ -58,6 +52,6 @@ func TestWithCompression_DecodeError(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	WithCompression(h).ServeHTTP(recorder, req)
 
-	assert.False(t, called)
-	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	s.False(called)
+	s.Equal(http.StatusInternalServerError, recorder.Code)
 }

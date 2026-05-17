@@ -6,7 +6,7 @@ import (
 	"go-url-shortener/internal/config"
 	"go-url-shortener/internal/db"
 	dbmodel "go-url-shortener/internal/model/db"
-	repository "go-url-shortener/internal/repository/dbrepos"
+	"go-url-shortener/internal/repository/dbrepos"
 
 	"github.com/rs/zerolog"
 )
@@ -31,7 +31,7 @@ func NewRepository(done context.Context, cfg *config.Config, logger *zerolog.Log
 			return nil, err
 		}
 
-		return repository.NewURLRepository(done, dbConnection, logger), nil
+		return dbrepos.NewURLRepository(done, dbConnection, logger), nil
 	}
 
 	if cfg.FileStoragePath != "" {

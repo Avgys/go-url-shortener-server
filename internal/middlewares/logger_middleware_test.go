@@ -3,25 +3,21 @@ package middlewares
 import (
 	"net/http"
 	"net/http/httptest"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestWrapWriter_TracksStatusAndSize(t *testing.T) {
+func (s *MiddlewaresSuite) TestWrapWriter_TracksStatusAndSize() {
 	recorder := httptest.NewRecorder()
 	wrapped := wrapWriter(recorder)
 
 	wrapped.WriteHeader(http.StatusCreated)
 	_, err := wrapped.Write([]byte("hello"))
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
-	assert.Equal(t, http.StatusCreated, wrapped.logData.statusCode)
-	assert.Equal(t, len("hello"), wrapped.logData.responseSize)
+	s.Equal(http.StatusCreated, wrapped.logData.statusCode)
+	s.Equal(len("hello"), wrapped.logData.responseSize)
 }
 
-func TestWithLogging_Passthrough(t *testing.T) {
+func (s *MiddlewaresSuite) TestWithLogging_Passthrough() {
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -32,6 +28,6 @@ func TestWithLogging_Passthrough(t *testing.T) {
 
 	WithLogging(h).ServeHTTP(recorder, req)
 
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Equal(t, "ok", recorder.Body.String())
+	s.Equal(http.StatusOK, recorder.Code)
+	s.Equal("ok", recorder.Body.String())
 }

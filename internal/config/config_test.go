@@ -6,17 +6,22 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func clearEnv(t *testing.T, key string) {
-	t.Helper()
+func TestConfigSuite(t *testing.T) {
+	suite.Run(t, new(ConfigSuite))
+}
 
+type ConfigSuite struct {
+	suite.Suite
+}
+
+func (s *ConfigSuite) clearEnv(key string) {
 	value, wasSet := os.LookupEnv(key)
-	require.NoError(t, os.Unsetenv(key))
+	s.Require().NoError(os.Unsetenv(key))
 
-	t.Cleanup(func() {
+	s.T().Cleanup(func() {
 		if wasSet {
 			_ = os.Setenv(key, value)
 			return
@@ -25,48 +30,53 @@ func clearEnv(t *testing.T, key string) {
 	})
 }
 
-func TestParseFlags(t *testing.T) {
+func (s *ConfigSuite) TestParseFlags() {
 	cfg := &Config{}
 
-	err := parseFlags(cfg, []string{"-a", "localhost:8080", "-d", "db", "-r", "http://accrual"})
-	require.NoError(t, err)
+	err := parseFlags(cfg, []string{"-a", "localhost:8080", "-d", "db", "-b", "http://localhost:8080", "-f", "/tmp/storage"})
+	s.Require().NoError(err)
 
-	assert.Equal(t, "localhost:8080", cfg.AppURL)
-	assert.Equal(t, "db", cfg.DBConnectionString)
-	assert.Equal(t, "http://accrual", cfg.AccrualSystemAddr)
+	s.Equal("localhost:8080", cfg.AppURL.Host)
+	s.Equal("db", cfg.DBConnectionString)
+	s.Equal("http://localhost:8080", cfg.RedirectDomain.String())
+	s.Equal("/tmp/storage", cfg.FileStoragePath)
 }
 
-func TestParseFlags_UnknownFlag(t *testing.T) {
+func (s *ConfigSuite) TestParseFlags_UnknownFlag() {
 	cfg := &Config{}
 
 	err := parseFlags(cfg, []string{"-unknown"})
-	require.Error(t, err)
+	s.Error(err)
 }
 
-func TestGetConfig_FlagsOverrideEnv(t *testing.T) {
-	t.Setenv("RUN_ADDRESS", "env:8081")
-	t.Setenv("DATABASE_URI", "envdb")
-	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "http://env-accrual")
+func (s *ConfigSuite) TestGetConfig_EnvOverridesFlags() {
+	s.T().Setenv("SERVER_ADDRESS", "env:8081")
+	s.T().Setenv("DATABASE_DSN", "envdb")
+	s.T().Setenv("BASE_URL", "http://env-base")
+	s.T().Setenv("FILE_STORAGE_PATH", "/env/storage")
 
 	logger := zerolog.New(io.Discard)
-	cfg, err := GetConfig([]string{"-a", "flag:8080", "-d", "flagdb", "-r", "http://flag-accrual"}, &logger)
-	require.NoError(t, err)
+	cfg, err := GetConfig([]string{"-a", "flag:8080", "-d", "flagdb", "-b", "http://flag-base", "-f", "/flag/storage"}, &logger)
+	s.Require().NoError(err)
 
-	assert.Equal(t, "flag:8080", cfg.AppAddr)
-	assert.Equal(t, "flagdb", cfg.DBConnectionString)
-	assert.Equal(t, "http://flag-accrual", cfg.AccrualSystemAddr)
+	s.Equal("env:8081", cfg.AppURL.Host)
+	s.Equal("envdb", cfg.DBConnectionString)
+	s.Equal("http://env-base", cfg.RedirectDomain.String())
+	s.Equal("/env/storage", cfg.FileStoragePath)
 }
 
-func TestGetConfig_FlagsOnly(t *testing.T) {
-	clearEnv(t, "RUN_ADDRESS")
-	clearEnv(t, "DATABASE_URI")
-	clearEnv(t, "ACCRUAL_SYSTEM_ADDRESS")
+func (s *ConfigSuite) TestGetConfig_FlagsOnly() {
+	s.clearEnv("SERVER_ADDRESS")
+	s.clearEnv("DATABASE_DSN")
+	s.clearEnv("BASE_URL")
+	s.clearEnv("FILE_STORAGE_PATH")
 
 	logger := zerolog.New(io.Discard)
-	cfg, err := GetConfig([]string{"-a", "flag:8080", "-d", "flagdb", "-r", "http://flag-accrual"}, &logger)
-	require.NoError(t, err)
+	cfg, err := GetConfig([]string{"-a", "flag:8080", "-d", "flagdb", "-b", "http://flag-base", "-f", "/flag/storage"}, &logger)
+	s.Require().NoError(err)
 
-	assert.Equal(t, "flag:8080", cfg.AppAddr)
-	assert.Equal(t, "flagdb", cfg.DBConnectionString)
-	assert.Equal(t, "http://flag-accrual", cfg.AccrualSystemAddr)
+	s.Equal("flag:8080", cfg.AppURL.Host)
+	s.Equal("flagdb", cfg.DBConnectionString)
+	s.Equal("http://flag-base", cfg.RedirectDomain.String())
+	s.Equal("/flag/storage", cfg.FileStoragePath)
 }
