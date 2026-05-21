@@ -11,7 +11,7 @@ import (
 type Order struct {
 	OrderNum  int64
 	Status    int32
-	Accrual   pgtype.Numeric
+	audit     pgtype.Numeric
 	UserID    int64
 	CreatedAt pgtype.Timestamp
 	UpdatedAt pgtype.Timestamp

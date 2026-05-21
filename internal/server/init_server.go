@@ -12,6 +12,7 @@ import (
 	"go-url-shortener/internal/repository"
 	"go-url-shortener/internal/router"
 	"go-url-shortener/internal/service"
+	"go-url-shortener/internal/service/audit"
 	"go-url-shortener/internal/service/shortifier"
 
 	"github.com/rs/zerolog"
@@ -55,22 +56,30 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 		}
 	}()
 
+	// Repos
 	store, err := repository.NewRepository(done, cfg, traceLogger)
 
 	if err != nil {
 		return nil, fmt.Errorf("error initializing repository: %w", err)
 	}
 
-	if closer, ok := store.(io.Closer); ok {
-		closers = append(closers, closer)
-	}
+	closers = append(closers, store)
+
+	// Services
+
+	//	Audit services initialization
+	auditFile := audit.NewAuditFile(done, 1, cfg.AuditFile, traceLogger)
+	auditClient := audit.NewAuditClient(done, 2, cfg.AuditURL, traceLogger)
+	auditService := audit.NewAuditService(traceLogger, auditFile, auditClient)
 
 	generator := service.NewStringGenerator()
-	shortifierService, err := shortifier.NewShortifier(done, generator, store, &cfg.RedirectDomain)
+	shortifierService, err := shortifier.NewShortifier(done, generator, store, auditService, &cfg.RedirectDomain)
+
 	if err != nil {
 		return nil, fmt.Errorf("error initializing shortifier: %w", err)
 	}
-	h := handler.NewHandlers(shortifierService, store)
+
+	h := handler.NewHandlers(shortifierService, store, auditService)
 
 	return h, nil
 }

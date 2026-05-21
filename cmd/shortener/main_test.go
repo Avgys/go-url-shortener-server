@@ -8,14 +8,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/suite"
 	"go-url-shortener/internal/config"
 	"go-url-shortener/internal/handler"
 	"go-url-shortener/internal/repository"
 	"go-url-shortener/internal/router"
+	auditmocks "go-url-shortener/internal/service/audit/mocks"
 	"go-url-shortener/internal/service/shortifier"
+	shortifiermocks "go-url-shortener/internal/service/shortifier/mocks"
 	"go-url-shortener/internal/testcommon"
+
+	"github.com/golang/mock/gomock"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
 )
 
 func TestShortenerSuite(t *testing.T) {
@@ -41,12 +45,18 @@ func (s *ShortenerSuite) getTestServer() *httptest.Server {
 	cfg.RedirectDomain.Scheme = baseURL.Scheme
 
 	store := repository.NewInMemoryStore(nil)
-	strGen := &testcommon.MockStrGen{}
 
-	sf, err := shortifier.NewShortifier(s.T().Context(), strGen, store, &cfg.RedirectDomain)
+	ctrl := gomock.NewController(s.T())
+	strGen := shortifiermocks.NewMockStringGenerator(ctrl)
+	strGen.EXPECT().GetRandomString(gomock.Any()).Return("test-str").AnyTimes()
+
+	mockAudit := auditmocks.NewMockPublisher(ctrl)
+	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	sf, err := shortifier.NewShortifier(s.T().Context(), strGen, store, mockAudit, &cfg.RedirectDomain)
 	s.Require().NoError(err)
 
-	h := handler.NewHandlers(sf, store)
+	h := handler.NewHandlers(sf, store, mockAudit)
 
 	ts := httptest.NewUnstartedServer(router.NewRouter(h))
 	ts.Listener = ln
@@ -88,7 +98,7 @@ func (s *ShortenerSuite) TestRouter() {
 
 	redirectURL := "http://someurl"
 	host := ts.URL
-	awaitedURL, err := url.JoinPath(host, testcommon.TestStr)
+	awaitedURL, err := url.JoinPath(host, "test-str")
 	s.Require().NoError(err)
 
 	testTable := []struct {
@@ -103,7 +113,7 @@ func (s *ShortenerSuite) TestRouter() {
 		},
 		{
 			name:    "Redirect url",
-			request: s.redirectRequest(host, testcommon.TestStr),
+			request: s.redirectRequest(host, "test-str"),
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,
 				Body:       "",

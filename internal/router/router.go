@@ -38,7 +38,7 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(middlewares.SetCookie, middlewares.AuthRequireCookie)
+		r.Use(middlewares.SetCookie, middlewares.AuthRequireCookie(true))
 
 		r.Route("/api/user", func(r chi.Router) {
 			r.Get("/urls", h.GetURLsByUserID)
@@ -46,6 +46,6 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 		})
 	})
 
-	r.Get("/{url}", h.Redirect)
+	r.With(middlewares.AuthRequireCookie(false)).Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
 }

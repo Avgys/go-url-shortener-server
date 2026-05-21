@@ -63,8 +63,7 @@ func (s *HandlerSuite) Test_handlers_CreateShortURLAndReadDbStorage() {
 			name: "create shorturl and read",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-				store:  store,
+				store: store,
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,

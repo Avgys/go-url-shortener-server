@@ -8,52 +8,57 @@ import (
 	"go-url-shortener/internal/service/auth"
 )
 
-func AuthRequireCookie(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		traceLogger, close, err := logger.Middleware(r.Context(), "compress")
+func AuthRequireCookie(isRequired bool) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			traceLogger, close, err := logger.Middleware(r.Context(), "compress")
 
-		if err != nil {
-			fmt.Print("couldn't create request logger")
+			if err != nil {
+				fmt.Print("couldn't create request logger")
 
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 
-		defer func() { _ = close() }()
+			defer func() { _ = close() }()
 
-		authCookie, err := r.Cookie(string(auth.CookieName))
+			authCookie, err := r.Cookie(string(auth.CookieName))
 
-		if err == http.ErrNoCookie || authCookie == nil || authCookie.Value == "" {
+			if err != nil {
+				traceLogger.Info().
+					Str("AuthCookie", "Empty cookie").
+					Send()
+			}
 
-			traceLogger.Info().
-				Str("Cookie", "No-Cookie").
-				Send()
+			var claims *auth.TokenClaims
 
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
+			if err == nil && authCookie != nil && authCookie.Value != "" {
+				claims, err = auth.ParseToken(authCookie.Value)
 
-		claims, err := auth.ParseToken(authCookie.Value)
+				if err != nil {
+					traceLogger.Info().
+						Str("AuthCookie", "Empty claims").
+						Send()
+				}
+			}
 
-		if err != nil || claims == nil || claims.UserID == 0 {
+			if claims == nil && isRequired {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
 
-			traceLogger.Info().
-				Str("AuthCookie", "Empty claims").
-				Send()
+			if claims != nil {
+				if err := claims.InjectCookie(w); err != nil {
+					traceLogger.Err(err).Msg("inject auth cookie")
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
+				authCtx := claims.WithContext(r.Context())
+				r = r.WithContext(authCtx)
+			}
 
-		if err := claims.InjectCookie(w); err != nil {
-			traceLogger.Err(err).Msg("inject auth cookie")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		authCtx := claims.WithContext(r.Context())
-		r = r.WithContext(authCtx)
-
-		h.ServeHTTP(w, r)
-	})
+			h.ServeHTTP(w, r)
+		})
+	}
 }

@@ -71,3 +71,7 @@ func verifyToken(t *jwt.Token) (interface{}, error) {
 
 	return []byte(secretKey), nil
 }
+
+func (t *TokenClaims) IsOk() bool {
+	return t != nil && t.UserID != 0
+}

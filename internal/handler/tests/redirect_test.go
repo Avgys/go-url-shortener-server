@@ -29,10 +29,7 @@ func (s *HandlerSuite) Test_handlers_Redirect() {
 		},
 		{
 			name: "Not found url",
-			url:  "/" + testcommon.ShortHash,
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
+			url:  "/shorthash",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
 			},

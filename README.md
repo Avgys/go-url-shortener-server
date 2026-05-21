@@ -45,6 +45,8 @@ Environment variables (parsed after CLI flags; env wins over flags). See `intern
 | `BASE_URL` | `-b` | Public base URL for generated short links (default `http://localhost:8080`) |
 | `DATABASE_DSN` | `-d` | PostgreSQL connection string; omit to use file or memory |
 | `FILE_STORAGE_PATH` | `-f` | Path for file storage when no DSN is set |
+| `AUDIT_FILE` | `-audit-file` | Path to audit log file; empty disables file audit |
+| `AUDIT_URL` | `-audit-url` | Full URL of remote audit receiver; empty disables remote audit |
 
 Example:
 

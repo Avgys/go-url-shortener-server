@@ -1,5 +1,5 @@
-# Local dev: Postgres + accrual + gophermart.
-# Env names: internal/config/config.go (gophermart); accrual uses RUN_ADDRESS + DATABASE_URI like CI.
+# Local dev: Postgres + audit + gophermart.
+# Env names: internal/config/config.go (gophermart); audit uses RUN_ADDRESS + DATABASE_URI like CI.
 
 services:
   postgres:

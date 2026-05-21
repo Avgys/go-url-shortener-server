@@ -26,7 +26,7 @@ func (s *MiddlewaresSuite) TestRequireCookie_MissingCookie() {
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	recorder := httptest.NewRecorder()
 
-	AuthRequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(true)(h).ServeHTTP(recorder, req)
 
 	s.False(called)
 	s.Equal(http.StatusUnauthorized, recorder.Code)
@@ -42,7 +42,7 @@ func (s *MiddlewaresSuite) TestRequireCookie_InvalidToken() {
 	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: "bad"})
 	recorder := httptest.NewRecorder()
 
-	AuthRequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(true)(h).ServeHTTP(recorder, req)
 
 	s.False(called)
 	s.Equal(http.StatusUnauthorized, recorder.Code)
@@ -64,7 +64,7 @@ func (s *MiddlewaresSuite) TestRequireCookie_ValidToken() {
 	req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: tokenStr})
 	recorder := httptest.NewRecorder()
 
-	AuthRequireCookie(h).ServeHTTP(recorder, req)
+	AuthRequireCookie(true)(h).ServeHTTP(recorder, req)
 
 	s.Equal(http.StatusOK, recorder.Code)
 

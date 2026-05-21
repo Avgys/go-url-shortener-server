@@ -7,38 +7,27 @@ import (
 	"go-url-shortener/internal/logger"
 	"go-url-shortener/internal/model/requests"
 	"go-url-shortener/internal/model/responses"
-	"go-url-shortener/internal/repository"
-	"go-url-shortener/internal/service/shortifier"
-	shared "go-url-shortener/internal/shared/http"
+	httpshared "go-url-shortener/internal/shared/http"
 )
-
-type Handlers struct {
-	Shortifier *shortifier.Shortifier
-	Store      repository.Repository
-}
-
-func NewHandlers(shortifier *shortifier.Shortifier, store repository.Repository) *Handlers {
-	return &Handlers{Shortifier: shortifier, Store: store}
-}
 
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	body, err := getBody(w, r)
+	body, err := httpshared.GetRequestBody(w, r)
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
 	url := string(body)
 
-	resultURL, err := getShortURL(h, url, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(url, traceLogger, r)
 
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
@@ -52,7 +41,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "text/plain")
-	shared.WriteResponse(w, []byte(resultURL.ShortURL), status, traceLogger)
+	httpshared.WriteResponse(w, []byte(resultURL.ShortURL), status, traceLogger)
 }
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
@@ -63,15 +52,15 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	var reqModel requests.ShortenReq
 
-	if err := getJSONBody(r, &reqModel); err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+	if err := httpshared.GetJSONBody(r, &reqModel); err != nil {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
-	resultURL, err := getShortURL(h, reqModel.URL, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(reqModel.URL, traceLogger, r)
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
@@ -87,13 +76,13 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	result, err := json.Marshal(responses.ShortenResp{URL: resultURL.ShortURL})
 
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, result, status, traceLogger)
+	httpshared.WriteResponse(w, result, status, traceLogger)
 }
 
 func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
@@ -106,15 +95,15 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 	err := dec.Decode(&reqModel)
 
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
-	shortenBatch, err := shortenBatch(h, reqModel, traceLogger, r)
+	shortenBatch, err := h.Shortifier.ShortenBatch(reqModel, traceLogger, r)
 
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
@@ -122,11 +111,11 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 	result, err := json.Marshal(shortenBatch)
 
 	if err != nil {
-		if shared.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, result, http.StatusCreated, traceLogger)
+	httpshared.WriteResponse(w, result, http.StatusCreated, traceLogger)
 }

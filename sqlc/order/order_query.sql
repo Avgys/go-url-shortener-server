@@ -11,10 +11,10 @@ UPDATE orders o
 SET status = 1
 FROM picked p
 WHERE o.order_num = p.order_num
-RETURNING o.order_num, o.status, o.accrual, o.user_id, o.created_at, o.updated_at;
+RETURNING o.order_num, o.status, o.audit, o.user_id, o.created_at, o.updated_at;
 
 -- name: GetOrdersByUser :many
-SELECT order_num, status, accrual, user_id, created_at, updated_at
+SELECT order_num, status, audit, user_id, created_at, updated_at
 	FROM orders
 	where user_id = $1;
 
@@ -35,6 +35,6 @@ WHERE order_num = $1
 
 -- name: UpdateOrder :one
 UPDATE public.orders
-	SET status = $2, accrual = $3, updated_at = now()
+	SET status = $2, audit = $3, updated_at = now()
 	WHERE order_num = $1
-	RETURNING order_num, status, accrual, user_id;
+	RETURNING order_num, status, audit, user_id;

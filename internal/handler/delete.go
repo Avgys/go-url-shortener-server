@@ -5,7 +5,7 @@ import (
 
 	"go-url-shortener/internal/logger"
 	"go-url-shortener/internal/service/auth"
-	httphelper "go-url-shortener/internal/shared/http"
+	httpshared "go-url-shortener/internal/shared/http"
 )
 
 func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
@@ -16,26 +16,26 @@ func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		traceLogger.Err(err).Send()
-		err = httphelper.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		err = httpshared.NewError("unauthorized/broken token", http.StatusUnauthorized)
 
-		if httphelper.HandleErr(w, r, err, traceLogger) {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
 		}
 	}
 
 	var urls []string
 
-	err = getJSONBody(r, &urls)
+	err = httpshared.GetJSONBody(r, &urls)
 
-	if httphelper.HandleErr(w, r, err, traceLogger) {
+	if httpshared.HandleErr(w, r, err, traceLogger) {
 		return
 	}
 
 	err = h.Shortifier.DeleteUrls(ctx, claims.UserID, urls, traceLogger)
 
-	if httphelper.HandleErr(w, r, err, traceLogger) {
+	if httpshared.HandleErr(w, r, err, traceLogger) {
 		return
 	}
 
-	httphelper.WriteResponse(w, nil, http.StatusAccepted, traceLogger)
+	httpshared.WriteResponse(w, nil, http.StatusAccepted, traceLogger)
 }

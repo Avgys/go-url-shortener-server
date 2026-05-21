@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/rs/zerolog"
 	flagvalues "go-url-shortener/internal/config/flag_values"
 	"go-url-shortener/internal/model/requests"
 	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service/audit"
+
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -39,7 +41,9 @@ type storeInfo struct {
 type Shortifier struct {
 	store           repository.Repository
 	stringGenerator StringGenerator
-	redirectAddr    *flagvalues.NetAddress
+	auditService    audit.Publisher
+
+	redirectAddr *flagvalues.NetAddress
 
 	done       context.Context
 	deletePool chan *deleteQueue

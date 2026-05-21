@@ -35,6 +35,10 @@ func NewURLRepository(ctx context.Context, dbConn *db.DB, logger *zerolog.Logger
 func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (dbmodel.DBURL, error) {
 	row, err := s.queries.GetURLByShortURL(ctx, shortURL)
 
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dbmodel.DBURL{}, repoerrors.ErrNotFound
+	}
+
 	if err != nil {
 		return dbmodel.DBURL{}, err
 	}

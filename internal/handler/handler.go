@@ -1,0 +1,17 @@
+package handler
+
+import (
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service/audit"
+	"go-url-shortener/internal/service/shortifier"
+)
+
+type Handlers struct {
+	Shortifier   *shortifier.Shortifier
+	Store        repository.Repository
+	AuditService audit.Publisher
+}
+
+func NewHandlers(shortifier *shortifier.Shortifier, store repository.Repository, auditService audit.Publisher) *Handlers {
+	return &Handlers{Shortifier: shortifier, Store: store, AuditService: auditService}
+}

@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"reflect"
 
+	flagvalues "go-url-shortener/internal/config/flag_values"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/rs/zerolog"
-	flagvalues "go-url-shortener/internal/config/flag_values"
 )
 
 type Config struct {
@@ -15,6 +16,8 @@ type Config struct {
 	RedirectDomain     flagvalues.NetAddress `env:"BASE_URL"`
 	FileStoragePath    string                `env:"FILE_STORAGE_PATH"`
 	DBConnectionString string                `env:"DATABASE_DSN"`
+	AuditFile          string                `env:"AUDIT_FILE"`
+	AuditURL           string                `env:"AUDIT_URL"`
 }
 
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
@@ -37,6 +40,8 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 		Str("RedirectAddr", cfg.RedirectDomain.String()).
 		Str("FileStoragePath", cfg.FileStoragePath).
 		Str("DBConnectionString", cfg.DBConnectionString).
+		Str("AuditFile", cfg.AuditFile).
+		Str("AuditURL", cfg.AuditURL).
 		Send()
 
 	return cfg, nil
@@ -62,6 +67,8 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
 	fs.StringVar(&cfg.FileStoragePath, "f", "", "file storage name")
 	fs.StringVar(&cfg.DBConnectionString, "d", "", "db connection string url")
+	fs.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disables file audit)")
+	fs.StringVar(&cfg.AuditURL, "audit-url", "", "remote audit receiver URL (empty disables remote audit)")
 
 	return fs.Parse(args)
 }
@@ -73,6 +80,8 @@ func getDefaultConfig() *Config {
 	cfg.RedirectDomain = flagvalues.NetAddress{Host: "localhost:8080", Scheme: "http", SchemeRequired: true}
 	cfg.FileStoragePath = ""
 	cfg.DBConnectionString = ""
+	cfg.AuditFile = ""
+	cfg.AuditURL = ""
 
 	return &cfg
 }

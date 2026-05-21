@@ -6,13 +6,14 @@ import (
 	flagvalues "go-url-shortener/internal/config/flag_values"
 	"go-url-shortener/internal/logger"
 	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service/audit"
 
 	"golang.org/x/sync/errgroup"
 )
 
-func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, redirectAddr *flagvalues.NetAddress) (*Shortifier, error) {
+func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, auditService audit.Publisher, redirectAddr *flagvalues.NetAddress) (*Shortifier, error) {
 
-	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr}
+	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr, auditService: auditService}
 
 	g, c := errgroup.WithContext(done)
 

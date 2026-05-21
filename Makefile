@@ -1,20 +1,25 @@
 APP_NAME := shortener
 CMD_DIR := .
 
+export CGO_ENABLED := 1
+
 COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
 
 GOLANGCI_IMAGE := ${APP_NAME}-golangci
 
-.PHONY: all build run test lint tidy clean sqlc accrual docker-local docker-local-rebuild lint-docker
+.PHONY: all build run test lint tidy clean sqlc audit mocks docker-local docker-local-rebuild lint-docker
 
 sqlc:
 	sqlc generate -f sqlc/sqlc.yaml
+mocks:
+	go generate ./internal/service/audit/...
+	go generate ./internal/service/shortifier/...
 build:
 	go build $(CMD_DIR)/cmd/${APP_NAME}/main.go
 run:
 	go run $(CMD_DIR)/cmd/${APP_NAME}/main.go
-accrual:
-	./cmd/accrual/accrual_windows_amd64.exe
+audit:
+	./cmd/audit/audit_windows_amd64.exe
 lint:
 	go vet ./...
 
@@ -36,3 +41,7 @@ docker-local-rebuild:
 
 tests:
 	go test ./...
+
+tests-coverage:
+	go test ./... -coverprofile=coverage.out -race
+	go tool cover -func=coverage.out

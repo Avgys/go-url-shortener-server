@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"go-url-shortener/internal/logger"
 	"go-url-shortener/internal/service/auth"
@@ -21,6 +22,14 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 
 	if httphelper.HandleErr(w, r, err, traceLogger) {
 		return
+	}
+
+	claims, err := auth.GetFromContext(ctx)
+
+	traceLogger.Err(err).Send()
+
+	if err == nil {
+		h.AuditService.Publish(ctx, "follow", strconv.FormatInt(claims.UserID, 10), dbURL.OriginalURL)
 	}
 
 	w.Header().Set("Location", dbURL.OriginalURL)
