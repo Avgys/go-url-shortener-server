@@ -7,7 +7,7 @@ COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
 
 GOLANGCI_IMAGE := ${APP_NAME}-golangci
 
-.PHONY: all build run test lint tidy clean sqlc audit mocks docker-local docker-local-rebuild lint-docker
+.PHONY: all build run test lint tidy clean sqlc audit mocks docker-local docker-local-rebuild lint-docker vegeta-shorten vegeta-redirect vegeta-shorten-sh vegeta-redirect-sh
 
 sqlc:
 	sqlc generate -f sqlc/sqlc.yaml
@@ -45,3 +45,43 @@ tests:
 tests-coverage:
 	go test ./... -coverprofile=coverage.out -race
 	go tool cover -func=coverage.out
+
+show-runtime-pprof:
+	go tool pprof -http=":9091" -seconds=30 http://localhost:8080/debug/pprof/profile
+
+store-pprof:
+	curl http://127.0.0.1:8080/debug/pprof/heap > ./profiles/base.pprof
+
+show-base-pprof:
+	go tool pprof -http=":9091" -seconds=30 ./profiles/base.pprof
+	
+show-result-pprof:
+	go tool pprof -http=":9091" -seconds=30 ./profiles/result.pprof
+
+show-diff:
+	pprof -top -diff_base=profiles/base.pprof profiles/result.pprof
+
+VEGETA_PS = powershell -NoProfile -ExecutionPolicy Bypass -File
+
+# Windows (PowerShell) — use on machines without bash/WSL
+vegeta-shorten:
+	$(VEGETA_PS) scripts/vegeta/shorten.ps1
+
+vegeta-redirect:
+	$(VEGETA_PS) scripts/vegeta/redirect.ps1
+
+# Linux / macOS / Git Bash / WSL
+vegeta-shorten-sh:
+	bash scripts/vegeta/shorten.sh
+
+vegeta-redirect-sh:
+	bash scripts/vegeta/redirect.sh
+
+hey-shorten-windows:
+	1..1 | ForEach-Object {
+	$id = [guid]::NewGuid().ToString("n").Substring(0, 8)
+	hey -n 100 -c 10 -m POST `
+		-H "Content-Type: text/plain" `
+		-d "http://ofdafnyylfqe.biz/page/$id" `
+		http://localhost:8080/
+	}

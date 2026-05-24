@@ -24,6 +24,8 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
 	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithLogging, middlewares.WithCompression)
 
+	r.Mount("/debug", middleware.Profiler())
+
 	r.Group(func(r chi.Router) {
 
 		r.Use(middlewares.SetCookie)
