@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go-url-shortener/internal/config"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -17,6 +18,20 @@ type Observer interface {
 type AuditService struct {
 	observers map[int]Observer
 	logger    *zerolog.Logger
+}
+
+func (a *AuditService) Init(done context.Context, cfg *config.Config, traceLogger *zerolog.Logger) {
+	if len(cfg.AuditFile) > 0 {
+		auditFile := NewAuditFile(done, 1, cfg.AuditFile, traceLogger)
+
+		a.Register(auditFile)
+	}
+
+	if len(cfg.AuditURL) > 0 {
+		auditClient := NewAuditClient(done, 2, cfg.AuditURL, traceLogger)
+
+		a.Register(auditClient)
+	}
 }
 
 func NewAuditService(logger *zerolog.Logger, observers ...Observer) *AuditService {

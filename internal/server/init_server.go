@@ -65,12 +65,9 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 
 	closers = append(closers, store)
 
-	// Services
-
 	//	Audit services initialization
-	auditFile := audit.NewAuditFile(done, 1, cfg.AuditFile, traceLogger)
-	auditClient := audit.NewAuditClient(done, 2, cfg.AuditURL, traceLogger)
-	auditService := audit.NewAuditService(traceLogger, auditFile, auditClient)
+	auditService := audit.NewAuditService(traceLogger)
+	auditService.Init(done, cfg, traceLogger)
 
 	generator := service.NewStringGenerator()
 	shortifierService, err := shortifier.NewShortifier(done, generator, store, auditService, &cfg.RedirectDomain)
