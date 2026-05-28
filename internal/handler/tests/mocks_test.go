@@ -1,6 +1,11 @@
 package handler_test
 
 import (
+	"context"
+	"fmt"
+	"sync/atomic"
+	"testing"
+
 	"go-url-shortener/internal/config"
 	flagvalues "go-url-shortener/internal/config/flag_values"
 	"go-url-shortener/internal/handler"
@@ -43,7 +48,22 @@ func newMockStringGenerator(ctrl *gomock.Controller) shortifier.StringGenerator 
 	return m
 }
 
+// benchStrGen returns unique short hashes so benchmarks do not exhaust collision retries.
+type benchStrGen struct {
+	seq atomic.Uint64
+}
+
+func (g *benchStrGen) GetRandomString(int) string {
+	return fmt.Sprintf("bench%x", g.seq.Add(1))
+}
+
 func (s *HandlerSuite) getRouter(testStructure *innerStructure) *chi.Mux {
+	return buildRouter(s.T(), testStructure)
+}
+
+func buildRouter(tb testing.TB, testStructure *innerStructure) *chi.Mux {
+	tb.Helper()
+
 	if testStructure == nil {
 		testStructure = &innerStructure{}
 	}
@@ -52,7 +72,9 @@ func (s *HandlerSuite) getRouter(testStructure *innerStructure) *chi.Mux {
 		testStructure.store = repository.NewInMemoryStore(nil)
 	}
 
-	ctrl := gomock.NewController(s.T())
+	ctrl := gomock.NewController(tb)
+	tb.Cleanup(func() { ctrl.Finish() })
+
 	if testStructure.strGen == nil {
 		testStructure.strGen = newMockStringGenerator(ctrl)
 	}
@@ -60,7 +82,9 @@ func (s *HandlerSuite) getRouter(testStructure *innerStructure) *chi.Mux {
 	log := zerolog.Nop()
 	if testStructure.config == nil {
 		cfg, err := config.GetConfig([]string{}, &log)
-		s.Require().NoError(err)
+		if err != nil {
+			tb.Fatal(err)
+		}
 		testStructure.config = cfg
 	}
 
@@ -71,8 +95,15 @@ func (s *HandlerSuite) getRouter(testStructure *innerStructure) *chi.Mux {
 	mockAudit := auditmocks.NewMockPublisher(ctrl)
 	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
-	sf, err := shortifier.NewShortifier(s.T().Context(), testStructure.strGen, testStructure.store, mockAudit, &testStructure.config.RedirectDomain)
-	s.Require().NoError(err)
+	ctx := context.Background()
+	if c, ok := tb.(interface{ Context() context.Context }); ok {
+		ctx = c.Context()
+	}
+
+	sf, err := shortifier.NewShortifier(ctx, testStructure.strGen, testStructure.store, mockAudit, &testStructure.config.RedirectDomain)
+	if err != nil {
+		tb.Fatal(err)
+	}
 
 	h := handler.NewHandlers(sf, testStructure.store, mockAudit)
 

@@ -5,13 +5,25 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 )
 
 var funcNameTag string = "func_name_tag"
 
+var discardOutput atomic.Bool
+
+// SetDiscardOutput disables file/stderr logging; NewBaseLogger returns a nop logger.
+func SetDiscardOutput(discard bool) {
+	discardOutput.Store(discard)
+}
+
 func NewBaseLogger(funcName string) (*zerolog.Logger, func() error, error) {
+	if discardOutput.Load() {
+		log := zerolog.Nop()
+		return &log, func() error { return nil }, nil
+	}
 
 	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 

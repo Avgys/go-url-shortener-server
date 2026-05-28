@@ -167,3 +167,30 @@ docker compose -f docker-compose.local.yml down -v
 ## Module
 
 Go module: `go-url-shortener` (Go 1.26).
+
+## Optimization log
+Build ID: D:\GoProjects\go-url-shortener-server\cmd\shortener\__debug_bin.exe2026-05-28 18:36:21.6070308 +0300 +03
+Type: alloc_space
+Time: 2026-05-28 15:48:47 +03
+Showing nodes accounting for -785.90MB, 97.88% of 802.91MB total
+Dropped 109 nodes (cum <= 4.01MB)
+      flat  flat%   sum%        cum   cum%
+ -641.68MB 79.92% 79.92%  -774.88MB 96.51%  compress/flate.NewWriter
+ -129.20MB 16.09% 96.01%  -129.20MB 16.09%  compress/flate.(*compressor).initDeflate
+   -6.01MB  0.75% 96.76%    -6.01MB  0.75%  sync.(*Pool).pinSlow
+   -5.50MB  0.69% 97.45%    -5.50MB  0.69%  github.com/rs/zerolog.Logger.With
+   -3.50MB  0.44% 97.88%       -4MB   0.5%  compress/flate.newHuffmanBitWriter
+         0     0% 97.88%  -133.20MB 16.59%  compress/flate.(*compressor).init
+         0     0% 97.88%  -774.88MB 96.51%  compress/gzip.(*Writer).Close
+         0     0% 97.88%  -774.88MB 96.51%  compress/gzip.(*Writer).Write
+         0     0% 97.88%  -787.89MB 98.13%  github.com/go-chi/chi/v5.(*Mux).ServeHTTP
+         0     0% 97.88%  -784.89MB 97.76%  github.com/go-chi/chi/v5/middleware.RealIP.func1
+         0     0% 97.88%  -784.89MB 97.76%  go-url-shortener/internal/middlewares.Recoverer.func1
+         0     0% 97.88%  -776.38MB 96.70%  go-url-shortener/internal/middlewares.WithCompression.func1
+         0     0% 97.88%  -774.88MB 96.51%  go-url-shortener/internal/middlewares.WithCompression.func1.2
+         0     0% 97.88%  -784.89MB 97.76%  go-url-shortener/internal/middlewares.WithLogging.func1
+         0     0% 97.88%  -774.88MB 96.51%  go-url-shortener/internal/middlewares/compress.(*compressWriter).Close
+         0     0% 97.88%  -790.40MB 98.44%  net/http.(*conn).serve
+         0     0% 97.88%  -784.89MB 97.76%  net/http.HandlerFunc.ServeHTTP
+         0     0% 97.88%  -787.89MB 98.13%  net/http.serverHandler.ServeHTTP
+         0     0% 97.88%    -6.01MB  0.75%  sync.(*Pool).pin
