@@ -30,7 +30,7 @@ func WithCompression(h http.Handler) http.Handler {
 			return
 		}
 
-		r.Body = decodeReader		
+		r.Body = decodeReader
 
 		encodeWriter, err := compress.NewCompressWriter(w, r)
 
