@@ -11,3 +11,4 @@ const contentEncodingHeader = "Content-Encoding"
 
 var typesToDecompress = []string{"application/json", "text/plain", "application/x-gzip"}
 var supportedEncodings = []string{gzipType}
+var noEncoding = "no-encoding"

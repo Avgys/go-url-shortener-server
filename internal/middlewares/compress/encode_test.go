@@ -41,11 +41,13 @@ func (s *CompressSuite) TestNewCompressWriter_NoEncoding() {
 
 	writer, err := NewCompressWriter(recorder, req)
 	s.Require().NoError(err)
-	s.False(writer.gzipRequested)
+	s.False(writer.compressRequired)
 
+	writer.WriteHeader(http.StatusCreated)
 	_, err = writer.Write([]byte("hello"))
 	s.Require().NoError(err)
 	s.Require().NoError(writer.Close())
+	s.Equal(http.StatusCreated, recorder.Code)
 	s.Equal("hello", recorder.Body.String())
 }
 
@@ -56,13 +58,14 @@ func (s *CompressSuite) TestNewCompressWriter_GzipSmallBodySkipped() {
 
 	writer, err := NewCompressWriter(recorder, req)
 	s.Require().NoError(err)
-	s.True(writer.gzipRequested)
 
+	writer.WriteHeader(http.StatusCreated)
 	_, err = writer.Write([]byte("hello"))
 	s.Require().NoError(err)
 	s.Require().NoError(writer.Close())
+	s.False(writer.compressRequired)
 
-	s.Equal(noResult, writer.EncodeType)
+	s.Equal(http.StatusCreated, recorder.Code)
 	s.Empty(recorder.Header().Get(contentEncodingHeader))
 	s.Equal("hello", recorder.Body.String())
 }
@@ -77,6 +80,7 @@ func (s *CompressSuite) TestNewCompressWriter_GzipLargeBody() {
 	writer, err := NewCompressWriter(recorder, req)
 	s.Require().NoError(err)
 
+	writer.WriteHeader(http.StatusOK)
 	_, err = writer.Write(body)
 	s.Require().NoError(err)
 	s.Require().NoError(writer.Close())

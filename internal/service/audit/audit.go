@@ -24,13 +24,17 @@ func (a *AuditService) Init(done context.Context, cfg *config.Config, traceLogge
 	if len(cfg.AuditFile) > 0 {
 		auditFile := NewAuditFile(done, 1, cfg.AuditFile, traceLogger)
 
-		a.Register(auditFile)
+		if err := a.Register(auditFile); err != nil {
+			traceLogger.Err(err).Msg("register audit file observer")
+		}
 	}
 
 	if len(cfg.AuditURL) > 0 {
 		auditClient := NewAuditClient(done, 2, cfg.AuditURL, traceLogger)
 
-		a.Register(auditClient)
+		if err := a.Register(auditClient); err != nil {
+			traceLogger.Err(err).Msg("register audit client observer")
+		}
 	}
 }
 
