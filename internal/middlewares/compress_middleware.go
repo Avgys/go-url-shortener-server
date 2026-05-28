@@ -30,7 +30,7 @@ func WithCompression(h http.Handler) http.Handler {
 			return
 		}
 
-		r.Body = decodeReader
+		r.Body = decodeReader		
 
 		encodeWriter, err := compress.NewCompressWriter(w, r)
 
@@ -39,9 +39,14 @@ func WithCompression(h http.Handler) http.Handler {
 			return
 		}
 
-		defer func() { _ = encodeWriter.Close() }()
-
 		w = encodeWriter
+
+		h.ServeHTTP(w, r)
+
+		if err := encodeWriter.Close(); err != nil {
+			httpShared.HandleErr(w, r, err, traceLogger)
+			return
+		}
 
 		traceLogger.Info().
 			Str("Request Content-type", r.Header.Get("Content-Type")).
@@ -50,7 +55,5 @@ func WithCompression(h http.Handler) http.Handler {
 			Str("Request Encode-type", r.Header.Get("Accept-Encoding")).
 			Str("Encode-type", encodeWriter.EncodeType).
 			Send()
-
-		h.ServeHTTP(w, r)
 	})
 }

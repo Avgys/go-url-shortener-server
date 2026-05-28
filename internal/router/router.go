@@ -22,7 +22,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
-	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithLogging, middlewares.WithCompression)
+	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithCompression, middlewares.WithLogging)
 
 	r.Mount("/debug", middleware.Profiler())
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 )
 
 func (s *CompressSuite) TestGetEncodeType() {
@@ -40,7 +41,7 @@ func (s *CompressSuite) TestNewCompressWriter_NoEncoding() {
 
 	writer, err := NewCompressWriter(recorder, req)
 	s.Require().NoError(err)
-	s.Nil(writer.EncodeWriter)
+	s.False(writer.gzipRequested)
 
 	_, err = writer.Write([]byte("hello"))
 	s.Require().NoError(err)
@@ -48,20 +49,39 @@ func (s *CompressSuite) TestNewCompressWriter_NoEncoding() {
 	s.Equal("hello", recorder.Body.String())
 }
 
-func (s *CompressSuite) TestNewCompressWriter_Gzip() {
+func (s *CompressSuite) TestNewCompressWriter_GzipSmallBodySkipped() {
 	recorder := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	req.Header.Set(acceptEncodingHeader, gzipType)
 
 	writer, err := NewCompressWriter(recorder, req)
 	s.Require().NoError(err)
-	s.NotNil(writer.EncodeWriter)
-	s.Equal(gzipType, writer.EncodeType)
+	s.True(writer.gzipRequested)
 
 	_, err = writer.Write([]byte("hello"))
 	s.Require().NoError(err)
 	s.Require().NoError(writer.Close())
 
+	s.Equal(noResult, writer.EncodeType)
+	s.Empty(recorder.Header().Get(contentEncodingHeader))
+	s.Equal("hello", recorder.Body.String())
+}
+
+func (s *CompressSuite) TestNewCompressWriter_GzipLargeBody() {
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	req.Header.Set(acceptEncodingHeader, gzipType)
+
+	body := []byte(strings.Repeat("x", minGzipResponseBytes))
+
+	writer, err := NewCompressWriter(recorder, req)
+	s.Require().NoError(err)
+
+	_, err = writer.Write(body)
+	s.Require().NoError(err)
+	s.Require().NoError(writer.Close())
+
+	s.Equal(gzipType, writer.EncodeType)
 	s.Equal(gzipType, recorder.Header().Get(contentEncodingHeader))
 
 	gzr, err := gzip.NewReader(bytes.NewReader(recorder.Body.Bytes()))
@@ -72,5 +92,5 @@ func (s *CompressSuite) TestNewCompressWriter_Gzip() {
 
 	decompressed, err := io.ReadAll(gzr)
 	s.Require().NoError(err)
-	s.Equal("hello", string(decompressed))
+	s.Equal(body, decompressed)
 }

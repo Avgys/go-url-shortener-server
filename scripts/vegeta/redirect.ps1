@@ -7,8 +7,8 @@
 
 param(
     [string]$BaseUrl = $(if ($env:BASE_URL) { $env:BASE_URL } else { "http://localhost:8080" }),
-    [string]$Rate = $(if ($env:RATE) { $env:RATE } else { "50" }),
-    [string]$Duration = $(if ($env:DURATION) { $env:DURATION } else { "30s" }),
+    [string]$Rate = $(if ($env:RATE) { $env:RATE } else { "100" }),
+    [string]$Duration = $(if ($env:DURATION) { $env:DURATION } else { "10s" }),
     [int]$SeedCount = $(if ($env:SEED_COUNT) { [int]$env:SEED_COUNT } else { 1 }),
     [string]$ShortPath = $(if ($env:SHORT_PATH) { $env:SHORT_PATH } else { "" }),
     [string]$LongHost = $(if ($env:LONG_HOST) { $env:LONG_HOST } else { "http://ofdafnyylfqe.biz/page" }),

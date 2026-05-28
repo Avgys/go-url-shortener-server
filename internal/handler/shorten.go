@@ -41,7 +41,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "text/plain")
-	httpshared.WriteResponse(w, []byte(resultURL.ShortURL), status, traceLogger)
+	httpshared.WriteResponseStr(w, resultURL.ShortURL, status, traceLogger)
 }
 
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {

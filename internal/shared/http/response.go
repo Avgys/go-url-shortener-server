@@ -11,6 +11,12 @@ import (
 
 const maxBody = 1 << 20
 
+func WriteResponseStr(w http.ResponseWriter, resp string, code int, tracelog *zerolog.Logger) {
+	// body := unsafe.Slice(unsafe.StringData(resp), len(resp))
+	body := []byte(resp)
+	WriteResponse(w, body, code, tracelog)
+}
+
 func WriteResponse(w http.ResponseWriter, resp []byte, code int, tracelog *zerolog.Logger) {
 	w.WriteHeader(code)
 
