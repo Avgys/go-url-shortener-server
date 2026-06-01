@@ -9,6 +9,7 @@ import (
 	"net/http"
 )
 
+// GetJSONBody decodes r's JSON body into value. Malformed JSON yields a 400 [ShowHTTPError].
 func GetJSONBody(r *http.Request, value any) error {
 
 	dec := json.NewDecoder(r.Body)
@@ -25,6 +26,8 @@ func GetJSONBody(r *http.Request, value any) error {
 	return err
 }
 
+// GetRequestBody reads the request body up to maxBody bytes.
+// An empty body returns a 400 [ShowHTTPError].
 func GetRequestBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 
 	traceLogger := logger.FromContext(r.Context(), logger.GetFuncName())

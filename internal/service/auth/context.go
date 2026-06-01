@@ -5,6 +5,7 @@ import (
 	"errors"
 )
 
+// GetFromContext returns validated JWT claims stored by auth middleware.
 func GetFromContext(ctx context.Context) (*TokenClaims, error) {
 	claims, ok := ctx.Value(claimsName).(*TokenClaims)
 
@@ -15,6 +16,7 @@ func GetFromContext(ctx context.Context) (*TokenClaims, error) {
 	return claims, nil
 }
 
+// WithContext stores a copy of claims in ctx for downstream handlers and services.
 func (c TokenClaims) WithContext(ctx context.Context) context.Context {
 	if _, ok := ctx.Value(claimsName).(*TokenClaims); ok {
 		return ctx

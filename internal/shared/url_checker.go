@@ -7,11 +7,16 @@ import (
 )
 
 var (
-	ErrEmptyURL       = errors.New("empty url")
-	ErrEmptyHost      = errors.New("empty host")
+	// ErrEmptyURL is returned when the input string is empty or whitespace only.
+	ErrEmptyURL = errors.New("empty url")
+	// ErrEmptyHost is returned when a URL has no host after parsing.
+	ErrEmptyHost = errors.New("empty host")
+	// ErrNotValidScheme is returned when isSchemeRequired is true and the scheme is not http or https.
 	ErrNotValidScheme = errors.New("not valid scheme")
 )
 
+// GetURL parses s into a URL. When isSchemeRequired is false, a missing scheme defaults to http.
+// Host-less inputs without "://" are parsed as network-path references (//host/path).
 func GetURL(s string, isSchemeRequired bool) (*url.URL, error) {
 
 	s = strings.TrimSpace(s)

@@ -16,9 +16,11 @@ import (
 )
 
 var (
+	// ErrFileClosed is returned when writing to a closed [AuditFile].
 	ErrFileClosed = errors.New("file closed, read and write are forbidden")
 )
 
+// AuditFile appends audit events as CSV rows to a local file.
 type AuditFile struct {
 	ID int
 
@@ -31,6 +33,7 @@ type AuditFile struct {
 	closeOnce sync.Once
 }
 
+// NewAuditFile creates a file observer. The file is opened lazily on the first Update.
 func NewAuditFile(ctx context.Context, id int, filepath string, logger *zerolog.Logger) *AuditFile {
 
 	newLogger := logger.With().
@@ -41,10 +44,12 @@ func NewAuditFile(ctx context.Context, id int, filepath string, logger *zerolog.
 	return &AuditFile{ID: id, filepath: filepath, logger: &newLogger}
 }
 
+// GetID returns the observer ID used for registration.
 func (a *AuditFile) GetID() int {
 	return a.ID
 }
 
+// Update appends event as a CSV row, writing a header row when the file is new.
 func (a *AuditFile) Update(event AuditEvent) (err error) {
 
 	if a.appender == nil {
@@ -105,6 +110,7 @@ func (a *AuditFile) append(event AuditEvent) error {
 	return err
 }
 
+// Close syncs and closes the underlying file. Safe to call more than once.
 func (a *AuditFile) Close() error {
 
 	var err error = nil

@@ -11,12 +11,14 @@ import (
 
 const maxBody = 1 << 20
 
+// WriteResponseStr writes resp with the given status code and logs the response.
 func WriteResponseStr(w http.ResponseWriter, resp string, code int, tracelog *zerolog.Logger) {
 	// body := unsafe.Slice(unsafe.StringData(resp), len(resp))
 	body := []byte(resp)
 	WriteResponse(w, body, code, tracelog)
 }
 
+// WriteResponse writes resp with the given status code and logs the response.
 func WriteResponse(w http.ResponseWriter, resp []byte, code int, tracelog *zerolog.Logger) {
 	w.WriteHeader(code)
 
@@ -29,6 +31,8 @@ func WriteResponse(w http.ResponseWriter, resp []byte, code int, tracelog *zerol
 	}
 }
 
+// HandleErr writes err to w when non-nil. [ShowHTTPError] values set the status code;
+// server errors (5xx) also log the full request. Returns true when a response was written.
 func HandleErr(w http.ResponseWriter, r *http.Request, err error, tracelog *zerolog.Logger) bool {
 
 	if err == nil {

@@ -11,11 +11,13 @@ import (
 	"resty.dev/v3"
 )
 
+// ErrRetryAfter indicates the audit server responded with HTTP 429 Too Many Requests.
 type ErrRetryAfter struct {
 	error
 	RetryAfter int64
 }
 
+// AuditClient POSTs [AuditEvent] JSON to a remote audit endpoint.
 type AuditClient struct {
 	ID         int
 	httpClient *resty.Client
@@ -24,6 +26,7 @@ type AuditClient struct {
 	auditHost string
 }
 
+// NewAuditClient creates an HTTP observer. It closes when ctx is cancelled.
 func NewAuditClient(ctx context.Context, id int, auditHost string, logger *zerolog.Logger) *AuditClient {
 
 	newLogger := logger.With().
@@ -42,14 +45,17 @@ func NewAuditClient(ctx context.Context, id int, auditHost string, logger *zerol
 	return audit
 }
 
+// Update sends event to the configured audit host.
 func (a *AuditClient) Update(event AuditEvent) error {
 	return a.Send(context.Background(), event)
 }
 
+// GetID returns the observer ID used for registration.
 func (a *AuditClient) GetID() int {
 	return a.ID
 }
 
+// Send POSTs auditEvent to auditHost and maps HTTP status codes to errors.
 func (a *AuditClient) Send(ctx context.Context, auditEvent AuditEvent) error {
 
 	if a == nil || a.httpClient == nil {
@@ -104,6 +110,7 @@ func (a *AuditClient) Send(ctx context.Context, auditEvent AuditEvent) error {
 	return err
 }
 
+// Close releases the underlying HTTP client.
 func (a *AuditClient) Close() error {
 	return a.httpClient.Close()
 }

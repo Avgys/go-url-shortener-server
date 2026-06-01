@@ -45,6 +45,9 @@ type storeInfo struct {
 }
 
 // Shortifier creates short links, resolves redirects, lists user URLs, and queues deletions.
+//
+// Create with [NewShortifier]. The value is safe for concurrent use by HTTP handlers
+// once constructed; delete workers run until the constructor's done context is cancelled.
 type Shortifier struct {
 	store           repository.Repository
 	stringGenerator StringGenerator

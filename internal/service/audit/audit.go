@@ -10,16 +10,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Observer receives audit events. Implementations include [AuditFile] and [AuditClient].
 type Observer interface {
 	Update(event AuditEvent) error
 	GetID() int
 }
 
+// AuditService fans out [AuditEvent] values to registered observers.
 type AuditService struct {
 	observers map[int]Observer
 	logger    *zerolog.Logger
 }
 
+// Init registers file and HTTP observers when cfg.AuditFile or cfg.AuditURL are set.
 func (a *AuditService) Init(done context.Context, cfg *config.Config, traceLogger *zerolog.Logger) {
 	if len(cfg.AuditFile) > 0 {
 		auditFile := NewAuditFile(done, 1, cfg.AuditFile, traceLogger)
@@ -38,6 +41,7 @@ func (a *AuditService) Init(done context.Context, cfg *config.Config, traceLogge
 	}
 }
 
+// NewAuditService creates an audit hub with optional pre-registered observers.
 func NewAuditService(logger *zerolog.Logger, observers ...Observer) *AuditService {
 	observersMap := make(map[int]Observer)
 	for _, observer := range observers {
@@ -47,6 +51,7 @@ func NewAuditService(logger *zerolog.Logger, observers ...Observer) *AuditServic
 	return &AuditService{logger: logger, observers: observersMap}
 }
 
+// AuditEvent is the payload published to observers and sent to remote audit APIs.
 type AuditEvent struct {
 	Ts     int64  `json:"ts" csv:"ts"`
 	Action string `json:"action" csv:"action"`
@@ -54,6 +59,7 @@ type AuditEvent struct {
 	URL    string `json:"url" csv:"url"`
 }
 
+// Register adds an observer. Returns an error if o is nil or its ID is already taken.
 func (a *AuditService) Register(o Observer) error {
 	if o == nil {
 		return fmt.Errorf("observer is nil")
@@ -70,6 +76,7 @@ func (a *AuditService) Register(o Observer) error {
 	return nil
 }
 
+// Unregister removes an observer by its ID.
 func (a *AuditService) Unregister(o Observer) error {
 	if o == nil {
 		return fmt.Errorf("observer is nil")
@@ -80,6 +87,8 @@ func (a *AuditService) Unregister(o Observer) error {
 	return nil
 }
 
+// Publish builds an [AuditEvent] and notifies all observers asynchronously.
+// ctx is accepted for API compatibility; observer delivery uses a background goroutine.
 func (a *AuditService) Publish(ctx context.Context, action string, userID string, url string) {
 	event := AuditEvent{
 		Ts:     time.Now().Unix(),

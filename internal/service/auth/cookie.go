@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// InjectCookie sets the [CookieName] auth cookie on the response.
 func (c TokenClaims) InjectCookie(w http.ResponseWriter) error {
 	tokenString, err := c.ToString()
 
