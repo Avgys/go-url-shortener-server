@@ -11,6 +11,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// NewShortifier constructs a Shortifier, starts the background delete worker pool,
+// and shuts it down when done is cancelled. It returns an error if the service logger cannot be created.
 func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, auditService audit.Publisher, redirectAddr *flagvalues.NetAddress) (*Shortifier, error) {
 
 	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr, auditService: auditService}

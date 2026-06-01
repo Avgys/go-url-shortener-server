@@ -10,6 +10,9 @@ import (
 	httpshared "go-url-shortener/internal/shared/http"
 )
 
+// ShortifyURL handles POST / with a plain-text body containing the long URL.
+// On success it responds with 201 Created or 409 Conflict when the URL already exists,
+// and writes the short URL as text/plain.
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
@@ -44,6 +47,8 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	httpshared.WriteResponseStr(w, resultURL.ShortURL, status, traceLogger)
 }
 
+// ShortenURL handles POST /api/shorten with a JSON body {"url":"..."}.
+// The response is application/json with a result field holding the short URL.
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
@@ -85,6 +90,8 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 	httpshared.WriteResponse(w, result, status, traceLogger)
 }
 
+// ShortenBatch handles POST /api/shorten/batch with a JSON array of correlation_id and url pairs.
+// It responds with 201 Created and a JSON array of shortened URLs.
 func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 
 	traceLogger := logger.FromContext(r.Context(), logger.GetFuncName())

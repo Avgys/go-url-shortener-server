@@ -12,6 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Redirect handles GET /{shortURL} and responds with 307 Temporary Redirect to the original URL.
+// When the request context carries auth claims, an audit "follow" event is published asynchronously.
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -36,6 +38,8 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	httphelper.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)
 }
 
+// GetURLsByUserID handles GET /api/user/urls and returns the authenticated user's URL pairs as JSON.
+// It responds with 204 No Content when the user has no URLs.
 func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.FromContext(ctx, logger.GetFuncName())

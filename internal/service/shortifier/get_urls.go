@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 )
 
+// GetURLsByUserID returns non-deleted short and original URL pairs for the given user.
 func (s *Shortifier) GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]responses.URLPair, error) {
 
 	dbURLs, err := s.store.GetURLsByUserID(ctx, userID)

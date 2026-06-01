@@ -13,15 +13,21 @@ import (
 )
 
 var (
+	// ErrCollision is returned when no free short key could be allocated after retries.
 	ErrCollision = errors.New("could not find free space to store url")
-	ErrConflict  = errors.New("url already stored")
+	// ErrConflict is returned when the long URL is already stored for the user.
+	ErrConflict = errors.New("url already stored")
 )
 
+// ShortenBatchReq is the service-layer batch shorten request with an owning user ID.
 type ShortenBatchReq struct {
 	UserID int64
 	URLs   requests.ShortenBatchReq
 }
 
+// StringGenerator produces random short URL keys of a requested length.
+//
+//go:generate mockgen -destination=mocks/mock_string_generator.go -package=mocks go-url-shortener/internal/service/shortifier StringGenerator
 type StringGenerator interface {
 	GetRandomString(n int) string
 }
@@ -38,6 +44,7 @@ type storeInfo struct {
 	new      bool
 }
 
+// Shortifier creates short links, resolves redirects, lists user URLs, and queues deletions.
 type Shortifier struct {
 	store           repository.Repository
 	stringGenerator StringGenerator

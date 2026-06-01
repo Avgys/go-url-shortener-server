@@ -8,6 +8,8 @@ import (
 	httpshared "go-url-shortener/internal/shared/http"
 )
 
+// DeleteShortURL handles DELETE /api/user/urls with a JSON array of short URL keys to remove.
+// It responds with 202 Accepted when deletion is queued successfully.
 func (h *Handlers) DeleteShortURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.FromContext(ctx, logger.GetFuncName())

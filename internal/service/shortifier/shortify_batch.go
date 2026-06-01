@@ -7,14 +7,17 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/rs/zerolog"
-	"github.com/samber/lo"
 	"go-url-shortener/internal/model/requests"
 	"go-url-shortener/internal/model/responses"
 	"go-url-shortener/internal/shared"
 	httpShared "go-url-shortener/internal/shared/http"
+
+	"github.com/rs/zerolog"
+	"github.com/samber/lo"
 )
 
+// ShortifyBatch stores multiple long URLs for a user, retrying on short-key collisions.
+// Each result entry includes the public short URL and whether the row was newly created.
 func (s *Shortifier) ShortifyBatch(ctx context.Context, req *ShortenBatchReq, traceLogger *zerolog.Logger) (result responses.ShortenBatchResp, err error) {
 
 	urls := req.URLs

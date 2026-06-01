@@ -6,11 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
 	httpShared "go-url-shortener/internal/shared/http"
+
+	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
 
+// DeleteUrls enqueues a soft-delete for the user's short keys.
+// The operation is asynchronous; the store is updated by background workers.
+// Returns 503 when the service is shutting down and 429 when the delete queue is full.
 func (s *Shortifier) DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error {
 
 	select {

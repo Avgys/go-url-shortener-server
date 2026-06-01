@@ -12,10 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	dbmodel "go-url-shortener/internal/model/db"
+
 	"github.com/gocarina/gocsv"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
-	dbmodel "go-url-shortener/internal/model/db"
 )
 
 var (

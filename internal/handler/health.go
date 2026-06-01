@@ -7,6 +7,7 @@ import (
 	httphelper "go-url-shortener/internal/shared/http"
 )
 
+// Ping handles GET /ping and checks that the configured store is reachable.
 func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	traceLogger := logger.FromContext(ctx, logger.GetFuncName())

@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// ShortenURL shortens a single URL using the authenticated user from r's context.
+// It publishes an audit event for each stored long URL.
 func (s *Shortifier) ShortenURL(url string, traceLogger *zerolog.Logger, r *http.Request) (*responses.IndexedShortURL, error) {
 	batch := requests.ShortenBatchReq{requests.IndexedFullURL{FullURL: url}}
 	urls, err := s.ShortenBatch(batch, traceLogger, r)
@@ -24,6 +26,8 @@ func (s *Shortifier) ShortenURL(url string, traceLogger *zerolog.Logger, r *http
 	return &(*urls)[0], nil
 }
 
+// ShortenBatch shortens multiple URLs using the authenticated user from r's context.
+// It publishes an audit event per input URL after a successful store.
 func (s *Shortifier) ShortenBatch(batch requests.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*responses.ShortenBatchResp, error) {
 
 	ctx := r.Context()

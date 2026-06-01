@@ -5,8 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
 	"go-url-shortener/internal/service/auth"
+
+	"github.com/stretchr/testify/suite"
 )
 
 func TestMiddlewaresSuite(t *testing.T) {

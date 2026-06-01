@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// ResolveShortURL looks up a short key in the store and returns the stored row.
+// Missing URLs yield 404; soft-deleted URLs yield 410 Gone.
 func (s *Shortifier) ResolveShortURL(ctx context.Context, inputURL string, traceLogger *zerolog.Logger) (*dbmodel.DBURL, error) {
 
 	shortURL := strings.TrimSpace(inputURL)
