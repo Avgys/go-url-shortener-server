@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog"
-	"github.com/samber/lo"
 )
 
 type DBStore struct {
@@ -73,8 +72,12 @@ func (s *DBStore) StoreBatch(ctx context.Context, input map[string]string, userI
 		}
 	}()
 
-	fullURLArray := lo.Map(lo.Keys(input), func(x string, _ int) string { return x })
-	shortURLArray := lo.Map(lo.Values(input), func(x string, _ int) string { return x })
+	fullURLArray := make([]string, 0, len(input))
+	shortURLArray := make([]string, 0, len(input))
+	for longURL, shortURL := range input {
+		fullURLArray = append(fullURLArray, longURL)
+		shortURLArray = append(shortURLArray, shortURL)
+	}
 
 	qtx := s.queries.WithTx(tx)
 	rows, err := qtx.StoreBatchUrls(ctxTimeout, urlsrepository.StoreBatchUrlsParams{
