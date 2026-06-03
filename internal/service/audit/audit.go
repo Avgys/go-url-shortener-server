@@ -87,7 +87,7 @@ func (a *AuditService) Register(o Observer) error {
 		return fmt.Errorf("observer already exists: %T", o)
 	}
 
-	observerCh := a.Fanout.Take(singleObserverQueueLength)
+	observerCh := a.Fanout.Take(fmt.Sprintf("%T", o), singleObserverQueueLength)
 	a.observers[o] = observerCh
 
 	a.wg.Add(1)
@@ -127,7 +127,10 @@ func (a *AuditService) Publish(action string, userID string, url string) {
 	select {
 	case a.Fanout.In <- event:
 	default:
-		a.logger.Warn().Msg("audit buffer is full")
+		a.logger.Warn().
+			Int("queue_len", len(a.Fanout.In)).
+			Int("queue_cap", cap(a.Fanout.In)).
+			Msg("audit fanout input queue is full, event dropped")
 	}
 }
 

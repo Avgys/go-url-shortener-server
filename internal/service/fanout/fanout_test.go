@@ -20,7 +20,7 @@ func TestFanout_deliversToSubscribers(t *testing.T) {
 	ctx := context.Background()
 
 	f := fanout.New[int](ctx, 2, testLogger())
-	sub := f.Take(1)
+	sub := f.Take("test", 1)
 
 	f.In <- 42
 
@@ -35,8 +35,8 @@ func TestFanout_Take_returnsDistinctChannels(t *testing.T) {
 	ctx := context.Background()
 	f := fanout.New[int](ctx, 0, testLogger())
 
-	a := f.Take(1)
-	b := f.Take(1)
+	a := f.Take("a", 1)
+	b := f.Take("b", 1)
 
 	if a == b {
 		t.Fatal("expected distinct subscriber channels")
@@ -49,7 +49,7 @@ func TestFanout_Close(t *testing.T) {
 	ctx := context.Background()
 
 	f := fanout.New[int](ctx, 1, testLogger())
-	sub := f.Take(1)
+	sub := f.Take("test", 1)
 
 	if err := f.Close(sub); err != nil {
 		t.Fatal(err)
