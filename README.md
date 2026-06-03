@@ -169,6 +169,9 @@ docker compose -f docker-compose.local.yml down -v
 Go module: `go-url-shortener` (Go 1.26).
 
 ## Optimization log
+
+Previously, compression ran for every response, including very small bodies. The middleware now applies gzip only when the response body is at least 1400 bytes, which reduced allocations on small responses.
+
 Build ID: D:\GoProjects\go-url-shortener-server\cmd\shortener\__debug_bin.exe2026-05-28 18:36:21.6070308 +0300 +03
 Type: alloc_space
 Time: 2026-05-28 15:48:47 +03

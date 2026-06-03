@@ -51,7 +51,7 @@ func (s *ShortenerSuite) getTestServer() *httptest.Server {
 	strGen.EXPECT().GetRandomString(gomock.Any()).Return("test-str").AnyTimes()
 
 	mockAudit := auditmocks.NewMockPublisher(ctrl)
-	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	sf, err := shortifier.NewShortifier(s.T().Context(), strGen, store, mockAudit, &cfg.RedirectDomain)
 	s.Require().NoError(err)

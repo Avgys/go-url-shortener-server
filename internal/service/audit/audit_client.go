@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 	"resty.dev/v3"
@@ -19,22 +21,23 @@ type ErrRetryAfter struct {
 
 // AuditClient POSTs [AuditEvent] JSON to a remote audit endpoint.
 type AuditClient struct {
-	ID         int
 	httpClient *resty.Client
 	logger     *zerolog.Logger
 
+	isClosed  atomic.Bool
+	closeOnce sync.Once
 	auditHost string
 }
 
 // NewAuditClient creates an HTTP observer. It closes when ctx is cancelled.
-func NewAuditClient(ctx context.Context, id int, auditHost string, logger *zerolog.Logger) *AuditClient {
+func NewAuditClient(ctx context.Context, auditHost string, logger *zerolog.Logger) *AuditClient {
 
 	newLogger := logger.With().
 		Str("audit", "http_client").
 		Str("audit_client_host", auditHost).
 		Logger()
 
-	audit := &AuditClient{httpClient: resty.New(), ID: id, logger: &newLogger, auditHost: auditHost}
+	audit := &AuditClient{httpClient: resty.New(), logger: &newLogger, auditHost: auditHost}
 
 	go func() {
 		<-ctx.Done()
@@ -46,19 +49,21 @@ func NewAuditClient(ctx context.Context, id int, auditHost string, logger *zerol
 }
 
 // Update sends event to the configured audit host.
-func (a *AuditClient) Update(event AuditEvent) error {
-	return a.Send(context.Background(), event)
-}
-
-// GetID returns the observer ID used for registration.
-func (a *AuditClient) GetID() int {
-	return a.ID
+func (a *AuditClient) Update(ctx context.Context, event AuditEvent) error {
+	return a.Send(ctx, event)
 }
 
 // Send POSTs auditEvent to auditHost and maps HTTP status codes to errors.
 func (a *AuditClient) Send(ctx context.Context, auditEvent AuditEvent) error {
+	if a == nil {
+		return errors.New("audit service client is nil")
+	}
 
-	if a == nil || a.httpClient == nil {
+	if a.isClosed.Load() {
+		return errors.New("audit client closed")
+	}
+
+	if a.httpClient == nil {
 		err := errors.New("audit service client is nil")
 		a.logger.Err(err).Send()
 
@@ -110,7 +115,15 @@ func (a *AuditClient) Send(ctx context.Context, auditEvent AuditEvent) error {
 	return err
 }
 
-// Close releases the underlying HTTP client.
-func (a *AuditClient) Close() error {
-	return a.httpClient.Close()
+// Close releases the underlying HTTP client. Safe to call more than once.
+func (a *AuditClient) Close() (err error) {
+	a.closeOnce.Do(func() {
+		a.isClosed.Store(true)
+
+		if a.httpClient != nil {
+			err = a.httpClient.Close()
+		}
+	})
+
+	return err
 }

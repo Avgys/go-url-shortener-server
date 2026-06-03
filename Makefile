@@ -54,7 +54,6 @@ store-pprof:
 
 show-base-pprof:
 	go tool pprof -http=":9091" -seconds=30 ./profiles/base.pprof
-	
 
 store-result-pprof:
 	curl http://127.0.0.1:8080/debug/pprof/heap > ./profiles/result.pprof
@@ -89,3 +88,5 @@ hey-shorten-windows:
 		-d "http://ofdafnyylfqe.biz/page/$id" `
 		http://localhost:8080/
 	}
+run-benchmarks:
+	go test -bench="." -benchmem ./internal/handler/tests/...

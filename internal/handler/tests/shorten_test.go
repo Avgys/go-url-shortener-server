@@ -296,7 +296,7 @@ func (s *HandlerSuite) Test_handlers_ShortenBatch() {
 			},
 			defaultStructure: &innerStructure{
 				strGen: &mockStrGenSequence{values: []string{"short-1"}},
-				store:  repository.NewInMemoryStore([]*dbmodel.DBURL{&dbmodel.DBURL{OriginalURL: "http://long-url.com", ShortURL: "short-1"}}),
+				store:  repository.NewInMemoryStore([]*dbmodel.DBURL{{OriginalURL: "http://long-url.com", ShortURL: "short-1"}}),
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusCreated,

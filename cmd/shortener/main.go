@@ -97,11 +97,12 @@ func run(log *zerolog.Logger) error {
 		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
 		defer cancelShutdownTimeoutCtx()
 
-		if err := srv.Shutdown(shutdownTimeoutCtx); err != nil {
-			log.Printf("an error occurred during server shutdown: %v", err)
+		shutdownErr := srv.Shutdown(shutdownTimeoutCtx)
+		if shutdownErr != nil {
+			log.Printf("an error occurred during server shutdown: %v", shutdownErr)
 		}
 
-		return err
+		return shutdownErr
 	})
 
 	if err := g.Wait(); err != nil {

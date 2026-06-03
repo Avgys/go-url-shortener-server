@@ -15,15 +15,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	// ErrFileClosed is returned when writing to a closed [AuditFile].
-	ErrFileClosed = errors.New("file closed, read and write are forbidden")
-)
-
 // AuditFile appends audit events as CSV rows to a local file.
 type AuditFile struct {
-	ID int
-
 	filepath string
 	file     *os.File
 	appender *csv.Writer
@@ -31,33 +24,47 @@ type AuditFile struct {
 	isClosed atomic.Bool
 
 	closeOnce sync.Once
+	openOnce  sync.Once
+	appendMux sync.Mutex
 }
 
 // NewAuditFile creates a file observer. The file is opened lazily on the first Update.
-func NewAuditFile(ctx context.Context, id int, filepath string, logger *zerolog.Logger) *AuditFile {
+func NewAuditFile(ctx context.Context, filepath string, logger *zerolog.Logger) *AuditFile {
 
 	newLogger := logger.With().
 		Str("audit", "file").
 		Str("audit_file_path", filepath).
 		Logger()
 
-	return &AuditFile{ID: id, filepath: filepath, logger: &newLogger}
-}
+	a := &AuditFile{filepath: filepath, logger: &newLogger}
 
-// GetID returns the observer ID used for registration.
-func (a *AuditFile) GetID() int {
-	return a.ID
+	go func() {
+		<-ctx.Done()
+
+		_ = a.Close()
+	}()
+
+	return a
 }
 
 // Update appends event as a CSV row, writing a header row when the file is new.
-func (a *AuditFile) Update(event AuditEvent) (err error) {
-
+func (a *AuditFile) Update(ctx context.Context, event AuditEvent) (err error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if a.appender == nil {
-		a.file, a.appender, err = openFile(a.filepath)
+		a.openOnce.Do(func() {
+			a.file, a.appender, err = openFile(a.filepath)
+		})
+
 		if err != nil {
 			a.logger.Err(err).Send()
 			return
 		}
+	}
+
+	if a.isClosed.Load() {
+		return errors.New("file closed")
 	}
 
 	err = a.append(event)
@@ -93,6 +100,10 @@ func openFile(path string) (*os.File, *csv.Writer, error) {
 }
 
 func (a *AuditFile) append(event AuditEvent) error {
+
+	a.appendMux.Lock()
+	defer a.appendMux.Unlock()
+
 	pos, err := a.file.Seek(0, io.SeekEnd)
 
 	if err != nil {
@@ -101,23 +112,45 @@ func (a *AuditFile) append(event AuditEvent) error {
 
 	input := []AuditEvent{event}
 
+	var appendFn func(in any, out gocsv.CSVWriter) (err error)
+
 	if pos == 0 {
-		err = gocsv.MarshalCSV(input, a.appender)
+		appendFn = gocsv.MarshalCSV
 	} else {
-		err = gocsv.MarshalCSVWithoutHeaders(input, a.appender)
+		appendFn = gocsv.MarshalCSVWithoutHeaders
 	}
 
-	return err
+	if err := appendFn(input, a.appender); err != nil {
+		a.logger.Err(err).Send()
+		return err
+	}
+
+	a.appender.Flush()
+
+	if err := a.appender.Error(); err != nil {
+		a.logger.Err(err).Send()
+		return err
+	}
+
+	return nil
 }
 
 // Close syncs and closes the underlying file. Safe to call more than once.
-func (a *AuditFile) Close() error {
-
-	var err error = nil
+func (a *AuditFile) Close() (err error) {
 
 	a.closeOnce.Do(func() {
 
 		a.isClosed.Store(true)
+
+		if a.appender == nil {
+			return
+		}
+
+		a.appender.Flush()
+		if err := a.appender.Error(); err != nil {
+			a.logger.Err(err).Send()
+			return
+		}
 
 		if err = a.file.Sync(); err != nil {
 			a.logger.Err(err).Send()

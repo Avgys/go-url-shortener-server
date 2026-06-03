@@ -26,13 +26,12 @@ func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := auth.GetFromContext(ctx)
-
-	traceLogger.Err(err).Send()
-
-	if err == nil {
-		h.AuditService.Publish(ctx, "follow", strconv.FormatInt(claims.UserID, 10), dbURL.OriginalURL)
+	userID := ""
+	if claims, err := auth.GetFromContext(ctx); err == nil {
+		userID = strconv.FormatInt(claims.UserID, 10)
 	}
+
+	h.AuditService.Publish("follow", userID, dbURL.OriginalURL)
 
 	w.Header().Set("Location", dbURL.OriginalURL)
 	httphelper.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)

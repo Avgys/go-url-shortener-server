@@ -50,7 +50,7 @@ func (s *Shortifier) ShortenBatch(batch requests.ShortenBatchReq, traceLogger *z
 	}
 
 	for _, url := range batch {
-		s.auditService.Publish(ctx, "shorten", strconv.FormatInt(claims.UserID, 10), url.FullURL)
+		s.auditService.Publish("shorten", strconv.FormatInt(claims.UserID, 10), url.FullURL)
 	}
 
 	return &resultURL, nil

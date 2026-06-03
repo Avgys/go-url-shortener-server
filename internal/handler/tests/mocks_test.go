@@ -93,7 +93,7 @@ func buildRouter(tb testing.TB, testStructure *innerStructure) *chi.Mux {
 	}
 
 	mockAudit := auditmocks.NewMockPublisher(ctrl)
-	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAudit.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	ctx := context.Background()
 	if c, ok := tb.(interface{ Context() context.Context }); ok {

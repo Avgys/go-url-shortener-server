@@ -26,7 +26,7 @@ const exampleLongURL = "https://example.com/long"
 
 type noopAudit struct{}
 
-func (noopAudit) Publish(context.Context, string, string, string) {}
+func (noopAudit) Publish(string, string, string) {}
 
 type stubGen struct{}
 

@@ -23,6 +23,7 @@ func benchRedirectStore() repository.Repository {
 }
 
 func BenchmarkRedirect(b *testing.B) {
+	setupBench(b)
 	const host = "http://localhost:8080"
 
 	r := buildRouter(b, &innerStructure{store: benchRedirectStore()})
@@ -30,11 +31,17 @@ func BenchmarkRedirect(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
+		b.StopTimer()
+		i++
 		requestURL := fmt.Sprintf("%s/r%x", host, i%benchRedirectEntries)
 		req := httptest.NewRequest(http.MethodGet, requestURL, nil)
 
 		rec := httptest.NewRecorder()
+
+		b.StartTimer()
+
 		r.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusTemporaryRedirect {

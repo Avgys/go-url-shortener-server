@@ -9,18 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 )
 
-func init() {
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "-test.bench") {
-			logger.SetDiscardOutput(true)
-			return
-		}
-	}
+func setupBench(b *testing.B) {
+	b.Helper()
+	logger.SetDiscardOutput(true)
+	b.Cleanup(func() { logger.SetDiscardOutput(false) })
 }
 
 func benchmarkLongURL(i int) string {
@@ -28,18 +24,23 @@ func benchmarkLongURL(i int) string {
 }
 
 func BenchmarkShortifyURL(b *testing.B) {
+	setupBench(b)
 	const host = "http://localhost:8080"
 
 	r := buildRouter(b, &innerStructure{strGen: &benchStrGen{}})
 
-	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
+		b.StopTimer()
+		i++
 		req := httptest.NewRequest(http.MethodPost, host, strings.NewReader(benchmarkLongURL(i)))
 		req.Header.Set("Content-Type", "text/plain")
 
 		rec := httptest.NewRecorder()
+		b.StartTimer()
+
 		r.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusCreated {
@@ -49,6 +50,7 @@ func BenchmarkShortifyURL(b *testing.B) {
 }
 
 func BenchmarkShortenURL(b *testing.B) {
+	setupBench(b)
 	const host = "http://localhost:8080"
 
 	requestPath, err := url.JoinPath(host, "api", "shorten")
@@ -61,7 +63,11 @@ func BenchmarkShortenURL(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
+		b.StopTimer()
+		i++
+
 		jsonBody, err := json.Marshal(requests.ShortenReq{URL: benchmarkLongURL(i)})
 		if err != nil {
 			b.Fatal(err)
@@ -71,6 +77,8 @@ func BenchmarkShortenURL(b *testing.B) {
 		req.Header.Set("Content-Type", "application/json")
 
 		rec := httptest.NewRecorder()
+		b.StartTimer()
+
 		r.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusCreated {
@@ -80,6 +88,7 @@ func BenchmarkShortenURL(b *testing.B) {
 }
 
 func BenchmarkShortenBatch(b *testing.B) {
+	setupBench(b)
 	const host = "http://localhost:8080"
 
 	requestPath, err := url.JoinPath(host, "api", "shorten", "batch")
@@ -92,7 +101,10 @@ func BenchmarkShortenBatch(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
+		b.StopTimer()
+		i++
 		payload, err := json.Marshal(requests.ShortenBatchReq{
 			{CorrelationID: "1", FullURL: benchmarkLongURL(i * 2)},
 			{CorrelationID: "2", FullURL: benchmarkLongURL(i*2 + 1)},
@@ -105,6 +117,8 @@ func BenchmarkShortenBatch(b *testing.B) {
 		req.Header.Set("Content-Type", "application/json")
 
 		rec := httptest.NewRecorder()
+		b.StartTimer()
+
 		r.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusCreated {
