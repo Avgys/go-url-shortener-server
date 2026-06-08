@@ -1,9 +1,9 @@
 package router
 
 import (
-	auth_middlewares "github.com/Avgys/go-url-shortener-server/internal/auth/middlewares"
-	"github.com/Avgys/go-url-shortener-server/internal/handler"
-	"github.com/Avgys/go-url-shortener-server/internal/middlewares"
+	"go-url-shortener/internal/handler"
+	"go-url-shortener/internal/middlewares"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -22,11 +22,13 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
-	r.Use(middleware.RealIP, middlewares.WithLogging, middlewares.WithCompression)
+	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithCompression, middlewares.WithLogging)
+
+	r.Mount("/debug", middleware.Profiler())
 
 	r.Group(func(r chi.Router) {
 
-		r.Use(auth_middlewares.SetCookie)
+		r.Use(middlewares.SetCookie)
 		r.With(middleware.AllowContentType(textType, xgzipType)).Post("/", h.ShortifyURL)
 
 		r.Group(func(r chi.Router) {
@@ -38,15 +40,14 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth_middlewares.SetCookie, auth_middlewares.RequireCookie)
+		r.Use(middlewares.SetCookie)
 
 		r.Route("/api/user", func(r chi.Router) {
 			r.Get("/urls", h.GetURLsByUserID)
 			r.With(middleware.AllowContentType(jsonType)).Delete("/urls", h.DeleteShortURL)
 		})
-
 	})
 
-	r.Get("/{url}", h.Redirect)
+	r.With(middlewares.AuthRequireCookie(false)).Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)
 }

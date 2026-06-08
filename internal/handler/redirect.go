@@ -3,47 +3,61 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
-	"github.com/Avgys/go-url-shortener-server/internal/auth/jwttoken"
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/service/auth"
+	httphelper "go-url-shortener/internal/shared/http"
+
 	"github.com/go-chi/chi/v5"
 )
 
+// Redirect handles GET /{shortURL} and responds with 307 Temporary Redirect to the original URL.
+// When the request context carries auth claims, an audit "follow" event is published asynchronously.
 func (h *Handlers) Redirect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	traceLogger := logger.Endpoint(ctx, "Redirect")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
 	url := chi.URLParam(r, "url")
 	dbURL, err := h.Shortifier.ResolveShortURL(ctx, url, traceLogger)
 
-	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
+	if httphelper.HandleErr(w, r, err, traceLogger) {
 		return
 	}
 
+	userID := ""
+	if claims, err := auth.GetFromContext(ctx); err == nil {
+		userID = strconv.FormatInt(claims.UserID, 10)
+	}
+
+	h.AuditService.Publish("follow", userID, dbURL.OriginalURL)
+
 	w.Header().Set("Location", dbURL.OriginalURL)
-	shared.WriteResponse(w, nil, http.StatusTemporaryRedirect)
+	httphelper.WriteResponse(w, nil, http.StatusTemporaryRedirect, traceLogger)
 }
 
+// GetURLsByUserID handles GET /api/user/urls and returns the authenticated user's URL pairs as JSON.
+// It responds with 204 No Content when the user has no URLs.
 func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	traceLogger := logger.Endpoint(ctx, "GetURLsByUserID")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	claims, err := jwttoken.GetClaims(ctx)
+	claims, err := auth.GetFromContext(ctx)
 
 	if err != nil {
 		traceLogger.Err(err).Send()
-		err = shared.NewError("unauthorized/broken token", http.StatusUnauthorized)
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		err = httphelper.NewError("unauthorized/broken token", http.StatusUnauthorized)
+		if httphelper.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	urls, err := h.Shortifier.GetURLsByUserID(ctx, claims.UserID, traceLogger)
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httphelper.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	var status int
@@ -56,5 +70,5 @@ func (h *Handlers) GetURLsByUserID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, response, status)
+	httphelper.WriteResponse(w, response, status, traceLogger)
 }

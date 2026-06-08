@@ -1,52 +1,38 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/service"
-	shared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
-	"github.com/rs/zerolog"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	httpshared "go-url-shortener/internal/shared/http"
 )
 
-type Handlers struct {
-	Shortifier Shortifier
-	Store      repository.Repository
-}
-
-type Shortifier interface {
-	ResolveShortURL(ctx context.Context, model string, logerr *zerolog.Logger) (*model.DBURL, error)
-	ShortifyBatch(ctx context.Context, model *service.ShortenBatchReq, logger *zerolog.Logger) (model.ShortenBatchResp, error)
-	GetURLsByUserID(ctx context.Context, userID int64, traceLogger *zerolog.Logger) ([]model.URLPair, error)
-	DeleteUrls(ctx context.Context, userID int64, urls []string, traceLogger *zerolog.Logger) error
-}
-
-func NewHandlers(shortifier Shortifier, store repository.Repository) *Handlers {
-	return &Handlers{Shortifier: shortifier, Store: store}
-}
-
+// ShortifyURL handles POST / with a plain-text body containing the long URL.
+// On success it responds with 201 Created or 409 Conflict when the URL already exists,
+// and writes the short URL as text/plain.
 func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
-	traceLogger := logger.Endpoint(ctx, "ShortifyURL")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	body, err := getBody(w, r)
+	body, err := httpshared.GetRequestBody(w, r)
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	url := string(body)
 
-	resultURL, err := getShortURL(h, url, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(url, traceLogger, r)
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	var status int
@@ -58,26 +44,30 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-type", "text/plain")
-	shared.WriteResponse(w, []byte(resultURL.ShortURL), status)
+	httpshared.WriteResponseStr(w, resultURL.ShortURL, status, traceLogger)
 }
 
+// ShortenURL handles POST /api/shorten with a JSON body {"url":"..."}.
+// The response is application/json with a result field holding the short URL.
 func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	traceLogger := logger.Endpoint(ctx, "ShortenURL")
+	traceLogger := logger.FromContext(ctx, logger.GetFuncName())
 
-	var reqModel model.ShortenReq
+	var reqModel requests.ShortenReq
 
-	if err := getJSONBody(r, &reqModel); err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+	if err := httpshared.GetJSONBody(r, &reqModel); err != nil {
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
-	resultURL, err := getShortURL(h, reqModel.URL, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(reqModel.URL, traceLogger, r)
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	var status int
@@ -88,45 +78,51 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusConflict
 	}
 
-	result, err := json.Marshal(model.ShortenResp{URL: resultURL.ShortURL})
+	result, err := json.Marshal(responses.ShortenResp{URL: resultURL.ShortURL})
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, result, status)
+	httpshared.WriteResponse(w, result, status, traceLogger)
 }
 
+// ShortenBatch handles POST /api/shorten/batch with a JSON array of correlation_id and url pairs.
+// It responds with 201 Created and a JSON array of shortened URLs.
 func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 
-	traceLogger := logger.Endpoint(r.Context(), "ShortenBatch")
+	traceLogger := logger.FromContext(r.Context(), logger.GetFuncName())
 
-	var reqModel model.ShortenBatchReq
+	var reqModel requests.ShortenBatchReq
 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&reqModel)
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
-	shortenBatch, err := shortenBatch(h, reqModel, traceLogger, r)
+	shortenBatch, err := h.Shortifier.ShortenBatch(reqModel, traceLogger, r)
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	result, err := json.Marshal(shortenBatch)
 
 	if err != nil {
-		shared.WriteError(w, r, err, traceLogger)
-		return
+		if httpshared.HandleErr(w, r, err, traceLogger) {
+			return
+		}
 	}
 
 	w.Header().Set("Content-type", "application/json")
-	shared.WriteResponse(w, result, http.StatusCreated)
+	httpshared.WriteResponse(w, result, http.StatusCreated, traceLogger)
 }

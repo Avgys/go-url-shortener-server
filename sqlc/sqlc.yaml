@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "./url/url_query.sql"
+    schema:
+      - "../migrations/sql/000001_create_table.up.sql"
+      - "../migrations/sql/000002_store_batch_urls_function.up.sql"
+    gen:
+      go:
+        package: "urlsrepository"
+        out: "url"
+        sql_package: "pgx/v5"

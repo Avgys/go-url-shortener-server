@@ -1,0 +1,39 @@
+# Local dev: Postgres + audit + gophermart.
+# Env names: internal/config/config.go (gophermart); audit uses RUN_ADDRESS + DATABASE_URI like CI.
+
+services:
+  postgres:
+    image: postgres:18.3
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-praktikum}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    # Postgres 18+ images expect a single mount at /var/lib/postgresql (not .../data).
+    # If you upgraded from an older image, remove the old volume once: docker compose -f docker-compose.local.yml down -v
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  shortener:
+    build:
+      context: .
+      dockerfile: cmd/shortener/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_ADDRESS: ${RUN_ADDRESS:-:8080}
+      DATABASE_DSN: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-praktikum}?sslmode=disable
+      BASE_URL: ${REDIRECT_DOMAIN:-http://localhost:8080}
+      FILE_STORAGE_PATH: ${FILE_STORAGE_PATH:-./storage}
+    ports:
+      - "${SHORTENER_PORT:-8080}:8080"
+
+volumes:
+  postgres_data:

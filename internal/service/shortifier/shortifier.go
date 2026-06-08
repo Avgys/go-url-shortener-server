@@ -1,0 +1,44 @@
+package shortifier
+
+import (
+	"context"
+
+	flagvalues "go-url-shortener/internal/config/flag_values"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/service/audit"
+
+	"golang.org/x/sync/errgroup"
+)
+
+// NewShortifier constructs a Shortifier, starts the background delete worker pool,
+// and shuts it down when done is cancelled. It returns an error if the service logger cannot be created.
+func NewShortifier(done context.Context, stringGenerator StringGenerator, store repository.Repository, auditService audit.Publisher, redirectAddr *flagvalues.NetAddress) (*Shortifier, error) {
+
+	s := &Shortifier{done: done, stringGenerator: stringGenerator, store: store, redirectAddr: redirectAddr, auditService: auditService}
+
+	g, c := errgroup.WithContext(done)
+
+	s.initDeletePool(g, c)
+
+	log, closeLog, err := logger.NewBaseLogger(logger.GetFuncName())
+
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger = log
+
+	go func() {
+
+		<-c.Done()
+
+		if err := g.Wait(); err != nil {
+			s.logger.Err(err).Send()
+		}
+
+		_ = closeLog()
+	}()
+
+	return s, nil
+}

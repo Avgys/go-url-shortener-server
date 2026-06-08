@@ -3,16 +3,13 @@ package handler_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"testing"
 
-	"github.com/Avgys/go-url-shortener-server/internal/config"
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
+	dbmodel "go-url-shortener/internal/model/db"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/testcommon"
 )
 
-func Test_handlers_Redirect(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_Redirect() {
 	tests := []struct {
 		name             string
 		url              string
@@ -23,8 +20,7 @@ func Test_handlers_Redirect(t *testing.T) {
 			name: "Get redirect",
 			url:  "/short-url",
 			defaultStructure: &innerStructure{
-				store:  repository.NewInMemoryStore([]*model.DBURL{{OriginalURL: "full-url", ShortURL: "short-url"}}),
-				config: &config.Config{AppURL: testHost},
+				store: repository.NewInMemoryStore([]*dbmodel.DBURL{{OriginalURL: "full-url", ShortURL: "short-url"}}),
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,
@@ -33,10 +29,7 @@ func Test_handlers_Redirect(t *testing.T) {
 		},
 		{
 			name: "Not found url",
-			url:  "/" + testcommon.ShortHash,
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
+			url:  "/shorthash",
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusNotFound,
 			},
@@ -50,21 +43,17 @@ func Test_handlers_Redirect(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			//Init
+		s.Run(tt.name, func() {
 			req := httptest.NewRequest(http.MethodGet, testHost.String()+tt.url, nil)
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(t, tt.defaultStructure)
+			r := s.getRouter(tt.defaultStructure)
 
-			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
-			//Check
-			testcommon.CheckResponseFields(t, res, tt.want)
+			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
 	}
 }

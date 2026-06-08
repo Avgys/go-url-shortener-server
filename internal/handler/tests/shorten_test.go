@@ -13,32 +13,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
-	"github.com/Avgys/go-url-shortener-server/internal/repository"
-	"github.com/Avgys/go-url-shortener-server/internal/testcommon"
-	"github.com/stretchr/testify/require"
+	dbmodel "go-url-shortener/internal/model/db"
+	"go-url-shortener/internal/model/requests"
+	"go-url-shortener/internal/model/responses"
+	"go-url-shortener/internal/repository"
+	"go-url-shortener/internal/testcommon"
+
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
 
-type mockStrGenSequence struct {
-	values []string
-	idx    int
+func TestHandlerSuite(t *testing.T) {
+	suite.Run(t, new(HandlerSuite))
 }
 
-func (m *mockStrGenSequence) GetRandomString(n int) string {
-	if len(m.values) == 0 {
-		return ""
-	}
-	value := m.values[m.idx%len(m.values)]
-	m.idx++
-	return value
+type HandlerSuite struct {
+	suite.Suite
 }
 
-func Test_handlers_ShortifyURL(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_ShortifyURL() {
 	host := "http://localhost:8080"
-	awaitedStr, err := url.JoinPath(host, testcommon.TestStr)
-	require.NoError(t, err)
+	awaitedStr, err := url.JoinPath(host, "test-str")
+	s.Require().NoError(err)
 
 	tests := []struct {
 		name             string
@@ -48,11 +44,9 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 		want             testcommon.ResponseWant
 	}{
 		{
-			name: "create shorturl",
-			url:  "http://long-url.com",
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
+			name:             "create shorturl",
+			url:              "http://long-url.com",
+			defaultStructure: &innerStructure{},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusCreated,
 				Body:       awaitedStr,
@@ -69,8 +63,8 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			name: "url exists",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewInMemoryStore([]*model.DBURL{{OriginalURL: "http://long-url.com", ShortURL: testcommon.ShortHash}})},
+				store: repository.NewInMemoryStore([]*dbmodel.DBURL{{OriginalURL: "http://long-url.com", ShortURL: "short-hash"}}),
+			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusConflict,
 			},
@@ -93,7 +87,7 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.Run(tt.name, func() {
 
 			//Init
 			req := httptest.NewRequest(http.MethodPost, host, strings.NewReader(tt.url))
@@ -105,22 +99,21 @@ func Test_handlers_ShortifyURL(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(t, tt.defaultStructure)
+			r := s.getRouter(tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			//Check
 
-			testcommon.CheckResponseFields(t, res, tt.want)
+			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
 	}
 }
 
-func Test_handlers_CreateShortURLAndRead(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_CreateShortURLAndRead() {
 	tests := []struct {
 		name             string
 		url              string
@@ -129,11 +122,9 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 		want             testcommon.ResponseWant
 	}{
 		{
-			name: "create shorturl and read",
-			url:  "http://long-url.com",
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
+			name:             "create shorturl and read",
+			url:              "http://long-url.com",
+			defaultStructure: &innerStructure{},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusTemporaryRedirect,
 				Headers:    map[string]string{"Location": "http://long-url.com"},
@@ -141,46 +132,45 @@ func Test_handlers_CreateShortURLAndRead(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.Run(tt.name, func() {
 
 			//Init
-			r := getRouter(t, tt.defaultStructure)
+			r := s.getRouter(tt.defaultStructure)
 
 			//Get short url
-			req := httptest.NewRequest(http.MethodPost, testHost.Host, strings.NewReader(tt.url))
+			req := httptest.NewRequest(http.MethodPost, testHost.String(), strings.NewReader(tt.url))
 			req.Header.Set("Content-Type", "text/plain")
 			recorder := httptest.NewRecorder()
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
 			resBody, err := io.ReadAll(res.Body)
-			res.Body.Close()
+			_ = res.Body.Close()
 
-			require.NoError(t, err)
-			require.Equal(t, http.StatusCreated, res.StatusCode)
+			s.Require().NoError(err)
+			s.Require().Equal(http.StatusCreated, res.StatusCode)
 
 			shortURL := string(resBody)
 
 			//Resolve short url
 			req = httptest.NewRequest(http.MethodGet, shortURL, nil)
-			req.SetPathValue("url", testcommon.ShortHash)
+			req.SetPathValue("url", "short-hash")
 			recorder = httptest.NewRecorder()
 			r.ServeHTTP(recorder, req)
 			res = recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
-			testcommon.CheckResponseFields(t, res, tt.want)
+			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
 	}
 }
 
-func Test_handlers_ShortenURL(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_ShortenURL() {
 	host := "http://localhost:8080"
 	requestPath, err := url.JoinPath(host, "api", "shorten")
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
-	awaitedStr, err := url.JoinPath(host, testcommon.TestStr)
-	require.NoError(t, err)
+	awaitedStr, err := url.JoinPath(host, "test-str")
+	s.Require().NoError(err)
 
 	tests := []struct {
 		name             string
@@ -190,11 +180,9 @@ func Test_handlers_ShortenURL(t *testing.T) {
 		want             testcommon.ResponseWant
 	}{
 		{
-			name: "create shorturl",
-			url:  "http://long-url.com",
-			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-			},
+			name:             "create shorturl",
+			url:              "http://long-url.com",
+			defaultStructure: &innerStructure{},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusCreated,
 				Body:       fmt.Sprintf(`{"result": "%s"}`, awaitedStr),
@@ -211,8 +199,8 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			name: "url exists",
 			url:  "http://long-url.com",
 			defaultStructure: &innerStructure{
-				strGen: &testcommon.MockStrGen{},
-				store:  repository.NewInMemoryStore([]*model.DBURL{&model.DBURL{OriginalURL: "http://long-url.com", ShortURL: testcommon.ShortHash}})},
+				store: repository.NewInMemoryStore([]*dbmodel.DBURL{{OriginalURL: "http://long-url.com", ShortURL: "short-hash"}}),
+			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusConflict,
 			},
@@ -235,12 +223,12 @@ func Test_handlers_ShortenURL(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.Run(tt.name, func() {
 
 			//Init
 
-			jsonBody, err := json.Marshal(model.ShortenReq{URL: tt.url})
-			require.NoError(t, err)
+			jsonBody, err := json.Marshal(requests.ShortenReq{URL: tt.url})
+			s.Require().NoError(err)
 
 			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
 
@@ -251,42 +239,41 @@ func Test_handlers_ShortenURL(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(t, tt.defaultStructure)
+			r := s.getRouter(tt.defaultStructure)
 
 			//Run
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			//Check
 
-			testcommon.CheckResponseFields(t, res, tt.want)
+			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
 	}
 }
 
-func Test_handlers_ShortenBatch(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_ShortenBatch() {
 	host := "http://localhost:8080"
 	requestPath, err := url.JoinPath(host, "api", "shorten", "batch")
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	shortURL1, err := url.JoinPath(host, "short-1")
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	shortURL2, err := url.JoinPath(host, "short-2")
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	tests := []struct {
 		name             string
-		payload          model.ShortenBatchReq
+		payload          requests.ShortenBatchReq
 		defaultStructure *innerStructure
 		contentType      string
 		want             testcommon.ResponseWant
 	}{
 		{
 			name: "create short urls",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url-1.com"},
 				{CorrelationID: "2", FullURL: "http://long-url-2.com"},
 			},
@@ -304,12 +291,12 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "url exists",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url.com"},
 			},
 			defaultStructure: &innerStructure{
 				strGen: &mockStrGenSequence{values: []string{"short-1"}},
-				store:  repository.NewInMemoryStore([]*model.DBURL{&model.DBURL{OriginalURL: "http://long-url.com", ShortURL: "short-1"}}),
+				store:  repository.NewInMemoryStore([]*dbmodel.DBURL{{OriginalURL: "http://long-url.com", ShortURL: "short-1"}}),
 			},
 			want: testcommon.ResponseWant{
 				StatusCode: http.StatusCreated,
@@ -321,7 +308,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "url wrong format",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "/gdfgdfhs"},
 			},
 			want: testcommon.ResponseWant{
@@ -330,7 +317,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "empty url",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: ""},
 			},
 			want: testcommon.ResponseWant{
@@ -339,7 +326,7 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 		{
 			name: "wrong content-type",
-			payload: model.ShortenBatchReq{
+			payload: requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: "http://long-url.com"},
 			},
 			contentType: "text",
@@ -350,10 +337,10 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.Run(tt.name, func() {
 
 			jsonBody, err := json.Marshal(tt.payload)
-			require.NoError(t, err)
+			s.Require().NoError(err)
 
 			req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
 
@@ -364,19 +351,18 @@ func Test_handlers_ShortenBatch(t *testing.T) {
 			}
 
 			recorder := httptest.NewRecorder()
-			r := getRouter(t, tt.defaultStructure)
+			r := s.getRouter(tt.defaultStructure)
 
 			r.ServeHTTP(recorder, req)
 			res := recorder.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
-			testcommon.CheckResponseFields(t, res, tt.want)
+			testcommon.CheckResponseFields(s.T(), res, tt.want)
 		})
 	}
 }
 
-func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
-
+func (s *HandlerSuite) Test_handlers_ShortenBatchResolveByCorrelation() {
 	host := "http://localhost:8080"
 	requestPath, _ := url.JoinPath(host, "api", "shorten", "batch")
 
@@ -385,38 +371,38 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 		"2": "http://long-url-2.com",
 	}
 
-	payload := model.ShortenBatchReq{
+	payload := requests.ShortenBatchReq{
 		{CorrelationID: "1", FullURL: source["1"]},
 		{CorrelationID: "2", FullURL: source["2"]},
 	}
 
 	jsonBody, err := json.Marshal(payload)
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	req := httptest.NewRequest(http.MethodPost, requestPath, bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()
-	r := getRouter(t, &innerStructure{
+	r := s.getRouter(&innerStructure{
 		strGen: &mockStrGenSequence{values: []string{"short-1", "short-2"}},
 	})
 
 	r.ServeHTTP(recorder, req)
 	res := recorder.Result()
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
-	require.Equal(t, http.StatusCreated, res.StatusCode)
+	s.Require().Equal(http.StatusCreated, res.StatusCode)
 
-	var batchResp model.ShortenBatchResp
+	var batchResp responses.ShortenBatchResp
 	err = json.NewDecoder(res.Body).Decode(&batchResp)
-	require.NoError(t, err)
+	s.Require().NoError(err)
 
 	for _, item := range batchResp {
 		original, ok := source[item.CorrelationID]
-		require.True(t, ok)
+		s.Require().True(ok)
 
 		parsed, err := url.Parse(item.ShortURL)
-		require.NoError(t, err)
+		s.Require().NoError(err)
 		shortKey := strings.TrimPrefix(parsed.Path, "/")
 
 		resolveReq := httptest.NewRequest(http.MethodGet, item.ShortURL, nil)
@@ -424,18 +410,22 @@ func Test_handlers_ShortenBatchResolveByCorrelation(t *testing.T) {
 		resolveRecorder := httptest.NewRecorder()
 		r.ServeHTTP(resolveRecorder, resolveReq)
 		resolveRes := resolveRecorder.Result()
-		resolveRes.Body.Close()
+		_ = resolveRes.Body.Close()
 
-		require.Equal(t, http.StatusTemporaryRedirect, resolveRes.StatusCode)
-		require.Equal(t, original, resolveRes.Header.Get("Location"))
+		s.Require().Equal(http.StatusTemporaryRedirect, resolveRes.StatusCode)
+		s.Require().Equal(original, resolveRes.Header.Get("Location"))
 	}
 }
 
-func Test_handlers_ShortenDeleteRead(t *testing.T) {
+func (s *HandlerSuite) Test_handlers_ShortenDeleteRead() {
 	const workerCount = 1
 	const urlsPerWorker = 3
 
-	r := getRouter(t, nil)
+	r := s.getRouter(&innerStructure{
+		strGen: &mockStrGenSequence{
+			values: []string{"del-1", "del-2", "del-3", "del-4", "del-5", "del-6", "del-7", "del-8", "del-9", "del-10"},
+		},
+	})
 	ts := httptest.NewServer(r)
 	defer ts.Close()
 
@@ -451,7 +441,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			resolveRes.Body.Close()
+			_ = resolveRes.Body.Close()
 
 			if resolveRes.StatusCode == http.StatusGone {
 				return nil
@@ -483,7 +473,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 				},
 			}
 
-			payload := model.ShortenBatchReq{
+			payload := requests.ShortenBatchReq{
 				{CorrelationID: "1", FullURL: fmt.Sprintf("http://long-url-%d-1.com", idx)},
 				{CorrelationID: "2", FullURL: fmt.Sprintf("http://long-url-%d-2.com", idx)},
 				{CorrelationID: "3", FullURL: fmt.Sprintf("http://long-url-%d-3.com", idx)},
@@ -509,13 +499,13 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			if res.StatusCode != http.StatusCreated {
 				return fmt.Errorf("unexpected status %d", res.StatusCode)
 			}
 
-			var batchResp model.ShortenBatchResp
+			var batchResp responses.ShortenBatchResp
 			if err := json.NewDecoder(res.Body).Decode(&batchResp); err != nil {
 				return err
 			}
@@ -564,7 +554,7 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			deleteRes.Body.Close()
+			_ = deleteRes.Body.Close()
 
 			if deleteRes.StatusCode != http.StatusAccepted {
 				return fmt.Errorf("unexpected delete status %d", deleteRes.StatusCode)
@@ -580,5 +570,5 @@ func Test_handlers_ShortenDeleteRead(t *testing.T) {
 		})
 	}
 
-	require.NoError(t, g.Wait())
+	s.Require().NoError(g.Wait())
 }

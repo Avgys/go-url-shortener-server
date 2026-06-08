@@ -1,23 +1,32 @@
 package middlewares
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/Avgys/go-url-shortener-server/internal/logger"
-	"github.com/Avgys/go-url-shortener-server/internal/middlewares/compress"
-	httpShared "github.com/Avgys/go-url-shortener-server/internal/shared/http"
+	"go-url-shortener/internal/logger"
+	"go-url-shortener/internal/middlewares/compress"
+	httpShared "go-url-shortener/internal/shared/http"
 )
 
 func WithCompression(h http.Handler) http.Handler {
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		traceLogger := logger.Middleware(r.Context(), "compress")
+		traceLogger, close, err := logger.Middleware(r.Context(), "compress")
+
+		if err != nil {
+			fmt.Print("couldn't create request logger")
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		defer func() { _ = close() }()
 
 		decodeReader, err := compress.NewCompressReader(r)
 
 		if err != nil {
-			httpShared.WriteError(w, r, err, traceLogger)
+			httpShared.HandleErr(w, r, err, traceLogger)
 			return
 		}
 
@@ -26,13 +35,18 @@ func WithCompression(h http.Handler) http.Handler {
 		encodeWriter, err := compress.NewCompressWriter(w, r)
 
 		if err != nil {
-			httpShared.WriteError(w, r, err, traceLogger)
+			httpShared.HandleErr(w, r, err, traceLogger)
 			return
 		}
 
-		defer encodeWriter.Close()
-
 		w = encodeWriter
+
+		h.ServeHTTP(w, r)
+
+		if err := encodeWriter.Close(); err != nil {
+			httpShared.HandleErr(w, r, err, traceLogger)
+			return
+		}
 
 		traceLogger.Info().
 			Str("Request Content-type", r.Header.Get("Content-Type")).
@@ -41,7 +55,5 @@ func WithCompression(h http.Handler) http.Handler {
 			Str("Request Encode-type", r.Header.Get("Accept-Encoding")).
 			Str("Encode-type", encodeWriter.EncodeType).
 			Send()
-
-		h.ServeHTTP(w, r)
 	})
 }

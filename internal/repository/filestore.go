@@ -12,7 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Avgys/go-url-shortener-server/internal/model"
+	dbmodel "go-url-shortener/internal/model/db"
+
 	"github.com/gocarina/gocsv"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
@@ -53,14 +54,14 @@ func NewFileStore(ctx context.Context, filename string, logger *zerolog.Logger) 
 	go func() {
 		<-ctx.Done()
 
-		rep.Close()
+		_ = rep.Close()
 	}()
 
 	return rep, nil
 }
 
-func readRows(file *os.File) ([]*model.DBURL, error) {
-	var records []*model.DBURL
+func readRows(file *os.File) ([]*dbmodel.DBURL, error) {
+	var records []*dbmodel.DBURL
 
 	reader := csv.NewReader(file)
 
@@ -138,7 +139,7 @@ func (fs *FileStore) Close() error {
 	return err
 }
 
-func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
+func (fs *FileStore) StoreBatch(ctx context.Context, input map[string]string, userID int64) (retryToInsert []string, alreadyExists map[string]string, err error) {
 	if fs.isClosed.Load() {
 		err = ErrFileClosed
 		return
@@ -150,16 +151,16 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 		return
 	}
 
-	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (model.DBURL, bool) {
+	urlsToSave := lo.FilterMapToSlice(input, func(origin string, short string) (dbmodel.DBURL, bool) {
 		if _, exists := alreadyExists[origin]; exists {
-			return model.DBURL{}, false
+			return dbmodel.DBURL{}, false
 		}
 
 		if lo.Contains(retryToInsert, origin) {
-			return model.DBURL{}, false
+			return dbmodel.DBURL{}, false
 		}
 
-		return model.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
+		return dbmodel.DBURL{OriginalURL: origin, ShortURL: short, UserID: userID, CreatedAt: time.Now().UTC()}, true
 	})
 
 	if err = fs.append(urlsToSave); err != nil {
@@ -169,9 +170,9 @@ func (fs *FileStore) StoreBatch(ctx context.Context, input Full2ShortBatch, user
 	return retryToInsert, alreadyExists, err
 }
 
-func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (model.DBURL, error) {
+func (fs *FileStore) ResolveShortURL(ctx context.Context, shortURL string) (dbmodel.DBURL, error) {
 	if fs.isClosed.Load() {
-		return model.DBURL{}, ErrFileClosed
+		return dbmodel.DBURL{}, ErrFileClosed
 	}
 
 	return fs.store.ResolveShortURL(ctx, shortURL)
@@ -181,7 +182,7 @@ func (fs *FileStore) TestConnection(ctx context.Context) error {
 	return nil
 }
 
-func (fs *FileStore) append(records []model.DBURL) error {
+func (fs *FileStore) append(records []dbmodel.DBURL) error {
 	pos, err := fs.file.Seek(0, io.SeekEnd)
 
 	if err != nil {
@@ -197,15 +198,15 @@ func (fs *FileStore) append(records []model.DBURL) error {
 	return err
 }
 
-func (fs *FileStore) getAll() []model.DBURL {
+func (fs *FileStore) getAll() []dbmodel.DBURL {
 	return fs.store.getAll()
 }
 
-func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]model.DBURL, error) {
+func (fs *FileStore) GetURLsByUserID(ctx context.Context, userID int64) ([]dbmodel.DBURL, error) {
 	return fs.store.GetURLsByUserID(ctx, userID)
 }
 
-func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]model.DBURL, error) {
+func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]dbmodel.DBURL, error) {
 
 	deleted, err := fs.store.DeleteURLS(context, groupedByUser)
 

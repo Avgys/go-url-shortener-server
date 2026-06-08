@@ -4,13 +4,32 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 )
 
-func NewLogger() (*zerolog.Logger, func()) {
+var funcNameTag string = "func_name_tag"
 
-	f, _ := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+var discardOutput atomic.Bool
+
+// SetDiscardOutput disables file/stderr logging; NewBaseLogger returns a nop logger.
+func SetDiscardOutput(discard bool) {
+	discardOutput.Store(discard)
+}
+
+func NewBaseLogger(funcName string) (*zerolog.Logger, func() error, error) {
+	if discardOutput.Load() {
+		log := zerolog.Nop()
+		return &log, func() error { return nil }, nil
+	}
+
+	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	logger := zerolog.
 		New(io.MultiWriter(os.Stderr, f)).
@@ -18,33 +37,49 @@ func NewLogger() (*zerolog.Logger, func()) {
 		Timestamp().
 		Logger()
 
-	return &logger, func() { f.Close() }
+	return &logger, f.Close, nil
 }
 
-func NewRequestLogger(ctx context.Context, spanID int64) (*zerolog.Logger, func()) {
+func NewRequestLogger(ctx context.Context, spanID int64) (*zerolog.Logger, func() error, error) {
 
-	log, close := NewLogger()
+	log, close, err := NewBaseLogger(GetFuncName())
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	wrappedLog := log.With().
-		Timestamp().
 		Ctx(ctx).
 		Int64("spanID", spanID).
 		Stack().
 		Logger()
 
-	return &wrappedLog, close
+	return &wrappedLog, close, nil
 }
 
-func FromContext(ctx context.Context) *zerolog.Logger {
-	return zerolog.Ctx(ctx)
+func FromContext(ctx context.Context, funcName string) *zerolog.Logger {
+
+	logWithFnName := zerolog.Ctx(ctx).With().Str(funcNameTag, funcName).Logger()
+	return &logWithFnName
 }
 
-func Middleware(ctx context.Context, name string) *zerolog.Logger {
-	log := zerolog.Ctx(ctx).With().Str("middleware", name).Logger()
-	return &log
+func Middleware(ctx context.Context, name string) (*zerolog.Logger, func() error, error) {
+
+	log, close, err := NewBaseLogger(name)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	wrappedLog := log.With().Str("middleware", name).Logger()
+
+	return &wrappedLog, close, nil
 }
 
-func Endpoint(ctx context.Context, name string) *zerolog.Logger {
-	log := zerolog.Ctx(ctx).With().Str("endpoint", name).Logger()
-	return &log
+func GetFuncName() string {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		return "?"
+	}
+	return runtime.FuncForPC(pc).Name()
 }
