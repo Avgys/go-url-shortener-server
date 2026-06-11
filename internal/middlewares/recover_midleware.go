@@ -7,23 +7,22 @@ import (
 )
 
 func Recoverer(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		traceLogger := logger.FromContext(req.Context(), logger.GetFuncName())
+		traceLogger := logger.FromContext(r.Context(), logger.GetFuncName())
 
 		defer func() {
 			if rvr := recover(); rvr != nil {
-				if rvr == http.ErrAbortHandler {
-					panic(rvr)
-				}
 
 				traceLogger.
 					Error().
 					Str("recover", fmt.Sprintf("recovered in f %s", rvr)).
 					Send()
+
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
 
-		next.ServeHTTP(writer, req)
+		next.ServeHTTP(w, r)
 	})
 }
