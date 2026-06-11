@@ -30,43 +30,29 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		{pkg: "os", name: "Exit"},
 	}
 
-	stopOnlyFromMain := func(x *ast.FuncDecl) {
-		if x.Name.Name == "main" || x.Body == nil {
+	stopOnlyFromMain := func(x *ast.CallExpr) {
+		sel, ok := x.Fun.(*ast.SelectorExpr)
+		if !ok {
 			return
 		}
 
-		ast.Inspect(x.Body, func(node ast.Node) bool {
+		pkgIdent, ok := sel.X.(*ast.Ident)
+		if !ok {
+			return
+		}
 
-			expr, ok := node.(*ast.CallExpr)
-			if !ok {
-				return true
+		for _, f := range findArr {
+			if pkgIdent.Name == f.pkg && sel.Sel.Name == f.name {
+				pass.Reportf(x.Pos(), "%s.%s found outside main function", f.pkg, f.name)
 			}
-
-			sel, ok := expr.Fun.(*ast.SelectorExpr)
-			if !ok {
-				return true
-			}
-
-			pkgIdent, ok := sel.X.(*ast.Ident)
-			if !ok {
-				return false
-			}
-
-			for _, f := range findArr {
-				if pkgIdent.Name == f.pkg && sel.Sel.Name == f.name {
-					pass.Reportf(expr.Pos(), "%s.%s found outside main function", f.pkg, f.name)
-				}
-			}
-
-			return true
-		})
+		}
 	}
 
 	for _, file := range pass.Files {
 		for _, decl := range file.Decls {
 
 			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Name.Name == "main" && fn.Recv == nil || fn.Body == nil {
+			if !ok || file.Name.Name == "main.go" && pass.Pkg.Name() == "main" && fn.Recv == nil || fn.Body == nil {
 				continue
 			}
 
@@ -74,7 +60,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				switch x := node.(type) {
 				case *ast.CallExpr: // выражение
 					panicFunc(x)
-				case *ast.FuncDecl: // выражение
 					stopOnlyFromMain(x)
 				}
 

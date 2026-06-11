@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-url-shortener/internal/logger"
 	"net/http"
+	"os"
 )
 
 func Recoverer(next http.Handler) http.Handler {
@@ -18,7 +19,7 @@ func Recoverer(next http.Handler) http.Handler {
 					Error().
 					Str("recover", fmt.Sprintf("recovered in f %s", rvr)).
 					Send()
-
+				os.Exit(2)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
