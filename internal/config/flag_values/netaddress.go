@@ -1,5 +1,7 @@
 package flagvalues
 
+//go:generate go run go-url-shortener/cmd/reset
+
 import (
 	"fmt"
 	"strings"
@@ -7,6 +9,7 @@ import (
 	"go-url-shortener/internal/shared"
 )
 
+// generate:reset
 type NetAddress struct {
 	Scheme         string
 	Host           string
