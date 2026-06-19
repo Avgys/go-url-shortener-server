@@ -1,6 +1,7 @@
 APP_NAME := shortener
 CMD_DIR := .
-
+VERSION := 1.0.0
+BUILD_DATE := $(shell date +%Y-%m-%d)
 export CGO_ENABLED := 1
 
 COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
@@ -15,9 +16,9 @@ mocks:
 	go generate ./internal/service/audit/...
 	go generate ./internal/service/shortifier/...
 build:
-	go build $(CMD_DIR)/cmd/${APP_NAME}/main.go
+	go build -ldflags "-X main.BuildVersion=${VERSION} -X main.BuildDate=${BUILD_DATE}" -o $(APP_NAME) ./cmd/$(APP_NAME)
 run:
-	go run $(CMD_DIR)/cmd/${APP_NAME}/main.go
+	go run -ldflags "-X main.BuildVersion=${VERSION} -X main.BuildDate=${BUILD_DATE}" ./cmd/$(APP_NAME)
 audit:
 	./cmd/audit/audit_windows_amd64.exe
 lint:
