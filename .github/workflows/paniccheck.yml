@@ -1,0 +1,32 @@
+name: paniccheck
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  paniccheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build paniccheck
+        run: |
+          mkdir -p .tools
+          go build -C cmd/lint -o "$GITHUB_WORKSPACE/.tools/paniccheck" .
+
+      - name: Run paniccheck tests
+        run: go test -C cmd/lint ./...
+
+      - name: Run paniccheck on repository
+        run: go vet -vettool="$GITHUB_WORKSPACE/.tools/paniccheck" ./...

@@ -52,7 +52,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		for _, decl := range file.Decls {
 
 			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || file.Name.Name == "main.go" && pass.Pkg.Name() == "main" && fn.Recv == nil || fn.Body == nil {
+			if !ok || pass.Pkg.Name() == "main" && fn.Recv == nil || fn.Body == nil {
 				continue
 			}
 
