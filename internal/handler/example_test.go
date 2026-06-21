@@ -32,7 +32,7 @@ type stubGen struct{}
 
 func (stubGen) GetRandomString(int) string { return "ex1" }
 
-func newExampleHandlers() (*handler.Handlers, context.CancelFunc) {
+func newExampleHandlers() (*handler.Handlers, context.CancelFunc, error) {
 	logger.SetDiscardOutput(true)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -45,9 +45,11 @@ func newExampleHandlers() (*handler.Handlers, context.CancelFunc) {
 		&flagvalues.NetAddress{Scheme: "http", Host: "localhost:8080"},
 	)
 	if err != nil {
-		panic(err)
+		cancel()
+		logger.SetDiscardOutput(false)
+		return nil, nil, err
 	}
-	return handler.NewHandlers(sf, store, noopAudit{}), cancel
+	return handler.NewHandlers(sf, store, noopAudit{}), cancel, nil
 }
 
 func exampleClaims() *auth.TokenClaims {
@@ -69,10 +71,10 @@ func withShortKey(req *http.Request, shortKey string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 }
 
-func shortenExampleURL(h *handler.Handlers, claims *auth.TokenClaims) (status int, shortURL, shortKey string) {
+func shortenExampleURL(h *handler.Handlers, claims *auth.TokenClaims) (status int, shortURL, shortKey string, err error) {
 	body, err := json.Marshal(requests.ShortenReq{URL: exampleLongURL})
 	if err != nil {
-		panic(err)
+		return 0, "", "", err
 	}
 
 	req := withAuth(httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(body)), claims)
@@ -83,23 +85,29 @@ func shortenExampleURL(h *handler.Handlers, claims *auth.TokenClaims) (status in
 
 	var resp responses.ShortenResp
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		panic(err)
+		return 0, "", "", err
 	}
 
 	parsed, err := url.Parse(resp.URL)
 	if err != nil {
-		panic(err)
+		return 0, "", "", err
 	}
 
-	return rec.Code, resp.URL, strings.TrimPrefix(parsed.Path, "/")
+	return rec.Code, resp.URL, strings.TrimPrefix(parsed.Path, "/"), nil
 }
 
 // ExampleHandlers_ShortenURL shortens a long URL via POST /api/shorten.
 func ExampleHandlers_ShortenURL() {
-	h, cancel := newExampleHandlers()
+	h, cancel, err := newExampleHandlers()
+	if err != nil {
+		return
+	}
 	defer exampleTeardown(cancel)
 
-	status, shortURL, _ := shortenExampleURL(h, exampleClaims())
+	status, shortURL, _, err := shortenExampleURL(h, exampleClaims())
+	if err != nil {
+		return
+	}
 	fmt.Printf("%d %s", status, shortURL)
 
 	// Output: 201 http://localhost:8080/ex1
@@ -107,11 +115,17 @@ func ExampleHandlers_ShortenURL() {
 
 // ExampleHandlers_Redirect resolves a short key and redirects to the original URL.
 func ExampleHandlers_Redirect() {
-	h, cancel := newExampleHandlers()
+	h, cancel, err := newExampleHandlers()
+	if err != nil {
+		return
+	}
 	defer exampleTeardown(cancel)
 
 	claims := exampleClaims()
-	_, _, shortKey := shortenExampleURL(h, claims)
+	_, _, shortKey, err := shortenExampleURL(h, claims)
+	if err != nil {
+		return
+	}
 
 	req := withShortKey(httptest.NewRequest(http.MethodGet, "/"+shortKey, nil), shortKey)
 	rec := httptest.NewRecorder()
@@ -124,11 +138,16 @@ func ExampleHandlers_Redirect() {
 
 // ExampleHandlers_GetURLsByUserID lists short and original URL pairs for the authenticated user.
 func ExampleHandlers_GetURLsByUserID() {
-	h, cancel := newExampleHandlers()
+	h, cancel, err := newExampleHandlers()
+	if err != nil {
+		return
+	}
 	defer exampleTeardown(cancel)
 
 	claims := exampleClaims()
-	shortenExampleURL(h, claims)
+	if _, _, _, err = shortenExampleURL(h, claims); err != nil {
+		return
+	}
 
 	req := withAuth(httptest.NewRequest(http.MethodGet, "/api/user/urls", nil), claims)
 	rec := httptest.NewRecorder()
@@ -136,7 +155,7 @@ func ExampleHandlers_GetURLsByUserID() {
 
 	var pairs []responses.URLPair
 	if err := json.Unmarshal(rec.Body.Bytes(), &pairs); err != nil {
-		panic(err)
+		return
 	}
 
 	fmt.Printf("%d %d", rec.Code, len(pairs))
@@ -146,15 +165,21 @@ func ExampleHandlers_GetURLsByUserID() {
 
 // ExampleHandlers_DeleteShortURL queues deletion of short URL keys for the authenticated user.
 func ExampleHandlers_DeleteShortURL() {
-	h, cancel := newExampleHandlers()
+	h, cancel, err := newExampleHandlers()
+	if err != nil {
+		return
+	}
 	defer exampleTeardown(cancel)
 
 	claims := exampleClaims()
-	_, _, shortKey := shortenExampleURL(h, claims)
+	_, _, shortKey, err := shortenExampleURL(h, claims)
+	if err != nil {
+		return
+	}
 
 	body, err := json.Marshal([]string{shortKey})
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	req := withAuth(httptest.NewRequest(http.MethodDelete, "/api/user/urls", bytes.NewReader(body)), claims)

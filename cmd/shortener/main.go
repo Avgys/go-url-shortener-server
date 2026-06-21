@@ -22,6 +22,14 @@ const (
 	shutdownLimit       = 10 * time.Second
 )
 
+var (
+	BuildVersion    string = "N/A"
+	BuildDate       string = "N/A"
+	BuildCommitHash string = "N/A"
+	BuildCommitName string = "N/A"
+	BuildBranch     string = "N/A"
+)
+
 func main() {
 
 	log, closeLogger, err := logger.NewBaseLogger(logger.GetFuncName())
@@ -30,6 +38,9 @@ func main() {
 		panic(err)
 	}
 
+	fillBuildInfoFromGit()
+	printBuildInfo()
+
 	defer func() { _ = closeLogger() }()
 
 	if err := run(log); err != nil {
@@ -37,6 +48,22 @@ func main() {
 	}
 
 	log.Println("bye-bye")
+}
+
+func printBuildInfo() {
+
+	for _, field := range []struct {
+		label string
+		value string
+	}{
+		{"Build version", BuildVersion},
+		{"Build date", BuildDate},
+		{"Build commit hash", BuildCommitHash},
+		{"Build commit name", BuildCommitName},
+		{"Build branch", BuildBranch},
+	} {
+		fmt.Printf("%s: %s\n", field.label, field.value)
+	}
 }
 
 func run(log *zerolog.Logger) error {
