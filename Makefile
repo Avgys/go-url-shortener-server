@@ -18,7 +18,7 @@ mocks:
 build:
 	go build -ldflags "-X main.BuildVersion=${VERSION} -X main.BuildDate=${BUILD_DATE}" -o $(APP_NAME) ./cmd/$(APP_NAME)
 run:
-	go run -ldflags "-X main.BuildVersion=${VERSION} -X main.BuildDate=${BUILD_DATE}" ./cmd/$(APP_NAME)
+	go run -ldflags "-X main.BuildVersion=${VERSION} -X main.BuildDate=${BUILD_DATE}" ./cmd/$(APP_NAME) -s
 audit:
 	./cmd/audit/audit_windows_amd64.exe
 lint:

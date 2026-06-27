@@ -18,6 +18,7 @@ type Config struct {
 	DBConnectionString string                `env:"DATABASE_DSN"`
 	AuditFile          string                `env:"AUDIT_FILE"`
 	AuditURL           string                `env:"AUDIT_URL"`
+	HttpsEnabled       bool                  `env:"ENABLE_HTTPS"`
 }
 
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
@@ -42,6 +43,7 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 		Str("DBConnectionString", cfg.DBConnectionString).
 		Str("AuditFile", cfg.AuditFile).
 		Str("AuditURL", cfg.AuditURL).
+		Bool("HttpsEnabled", cfg.HttpsEnabled).
 		Send()
 
 	return cfg, nil
@@ -69,6 +71,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.DBConnectionString, "d", "", "db connection string url")
 	fs.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disables file audit)")
 	fs.StringVar(&cfg.AuditURL, "audit-url", "", "remote audit receiver URL (empty disables remote audit)")
+	fs.BoolVar(&cfg.HttpsEnabled, "s", false, "enable https")
 
 	return fs.Parse(args)
 }
@@ -82,6 +85,7 @@ func getDefaultConfig() *Config {
 	cfg.DBConnectionString = ""
 	cfg.AuditFile = ""
 	cfg.AuditURL = ""
+	cfg.HttpsEnabled = false
 
 	return &cfg
 }

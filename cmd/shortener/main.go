@@ -50,22 +50,6 @@ func main() {
 	log.Println("bye-bye")
 }
 
-func printBuildInfo() {
-
-	for _, field := range []struct {
-		label string
-		value string
-	}{
-		{"Build version", BuildVersion},
-		{"Build date", BuildDate},
-		{"Build commit hash", BuildCommitHash},
-		{"Build commit name", BuildCommitName},
-		{"Build branch", BuildBranch},
-	} {
-		fmt.Printf("%s: %s\n", field.label, field.value)
-	}
-}
-
 func run(log *zerolog.Logger) error {
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -73,7 +57,7 @@ func run(log *zerolog.Logger) error {
 
 	g, ctx := errgroup.WithContext(rootCtx)
 
-	srv, err := server.NewServer(ctx, log)
+	startSrv, shutdownSrv, err := server.NewServer(ctx, log)
 
 	if err != nil {
 		return err
@@ -104,7 +88,7 @@ func run(log *zerolog.Logger) error {
 			}
 		}()
 
-		if err := srv.ListenAndServe(); err != nil {
+		if err := startSrv(); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
@@ -124,7 +108,7 @@ func run(log *zerolog.Logger) error {
 		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
 		defer cancelShutdownTimeoutCtx()
 
-		shutdownErr := srv.Shutdown(shutdownTimeoutCtx)
+		shutdownErr := shutdownSrv(shutdownTimeoutCtx)
 		if shutdownErr != nil {
 			log.Printf("an error occurred during server shutdown: %v", shutdownErr)
 		}

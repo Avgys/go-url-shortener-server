@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -64,5 +65,21 @@ func fillBuildInfoFromGit() {
 		if v, err := getGitLastCommitDate(); err == nil {
 			BuildDate = v
 		}
+	}
+}
+
+func printBuildInfo() {
+
+	for _, field := range []struct {
+		label string
+		value string
+	}{
+		{"Build version", BuildVersion},
+		{"Build date", BuildDate},
+		{"Build commit hash", BuildCommitHash},
+		{"Build commit name", BuildCommitName},
+		{"Build branch", BuildBranch},
+	} {
+		fmt.Printf("%s: %s\n", field.label, field.value)
 	}
 }
