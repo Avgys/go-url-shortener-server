@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type JsonConfig struct {
@@ -22,7 +23,30 @@ func getJsonConfig(cfg *Config, args []string) error {
 
 	var configPath string
 	fs.StringVar(&configPath, "c", "", "config path")
-	fs.Parse(args)
+	configArgs := make([]string, 0, 2)
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		if arg == "-c" {
+			configArgs = append(configArgs, arg)
+
+			if i+1 < len(args) {
+				configArgs = append(configArgs, args[i+1])
+				i++
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(arg, "-c=") {
+			configArgs = append(configArgs, arg)
+		}
+	}
+
+	if err := fs.Parse(configArgs); err != nil {
+		return fmt.Errorf("error parsing config path flag, %w", err)
+	}
 
 	value, ok := os.LookupEnv("CONFIG")
 
@@ -40,8 +64,6 @@ func getJsonConfig(cfg *Config, args []string) error {
 		return fmt.Errorf("error opening config file, %w", err)
 	}
 
-	defer f.Close()
-
 	var newCfg JsonConfig
 	err = json.NewDecoder(f).Decode(&newCfg)
 
@@ -49,8 +71,18 @@ func getJsonConfig(cfg *Config, args []string) error {
 		return fmt.Errorf("error decoding config file, %w", err)
 	}
 
-	cfg.AppURL.Set(newCfg.AppURL)
-	cfg.RedirectDomain.Set(newCfg.RedirectDomain)
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("error closing config file, %w", err)
+	}
+
+	if err := cfg.AppURL.Set(newCfg.AppURL); err != nil {
+		return fmt.Errorf("error parsing server_address from config file, %w", err)
+	}
+
+	if err := cfg.RedirectDomain.Set(newCfg.RedirectDomain); err != nil {
+		return fmt.Errorf("error parsing base_url from config file, %w", err)
+	}
+
 	cfg.FileStoragePath = newCfg.FileStoragePath
 	cfg.DBConnectionString = newCfg.DBConnectionString
 	cfg.AuditFile = newCfg.AuditFile
