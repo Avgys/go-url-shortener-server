@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 )
 
 type JsonConfig struct {
@@ -23,29 +22,10 @@ func getJsonConfig(cfg *Config, args []string) error {
 
 	var configPath string
 	fs.StringVar(&configPath, "c", "", "config path")
-	configArgs := make([]string, 0, 2)
 
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-
-		if arg == "-c" {
-			configArgs = append(configArgs, arg)
-
-			if i+1 < len(args) {
-				configArgs = append(configArgs, args[i+1])
-				i++
-			}
-
-			continue
-		}
-
-		if strings.HasPrefix(arg, "-c=") {
-			configArgs = append(configArgs, arg)
-		}
-	}
-
-	if err := fs.Parse(configArgs); err != nil {
-		return fmt.Errorf("error parsing config path flag, %w", err)
+	err := fs.Parse(args)
+	if err != nil {
+		return fmt.Errorf("error parsing flags, %w", err)
 	}
 
 	value, ok := os.LookupEnv("CONFIG")
