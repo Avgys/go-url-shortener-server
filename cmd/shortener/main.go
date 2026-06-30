@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	shutdownServerLimit = 5 * time.Second
+	shutdownServerLimit = 30 * time.Second
 	shutdownLimit       = 10 * time.Second
 )
 
@@ -52,7 +52,7 @@ func main() {
 
 func run(log *zerolog.Logger) error {
 
-	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, syscall.SIGQUIT)
 	defer stop()
 
 	g, ctx := errgroup.WithContext(rootCtx)
