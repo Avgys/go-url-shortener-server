@@ -11,9 +11,16 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"slices"
 	"strings"
 	"time"
 )
+
+var ACMECapableSuffixes = []string{
+	".example.com", ".example.net", ".example.org",
+	".invalid", ".test", ".localhost"}
+
+var ACMECapableDomains = []string{"example.com", "example.net", "example.org"}
 
 func useSelfSignedTLS(hosts []string) bool {
 	if len(hosts) == 0 {
@@ -21,7 +28,7 @@ func useSelfSignedTLS(hosts []string) bool {
 	}
 
 	for _, host := range hosts {
-		if !isPublicACMEDomain(host) {
+		if !isACMECapable(host) {
 			return true
 		}
 	}
@@ -29,7 +36,7 @@ func useSelfSignedTLS(hosts []string) bool {
 	return false
 }
 
-func isPublicACMEDomain(host string) bool {
+func isACMECapable(host string) bool {
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 
 	if host == "localhost" {
@@ -40,16 +47,11 @@ func isPublicACMEDomain(host string) bool {
 		return false
 	}
 
-	for _, name := range []string{"example.com", "example.net", "example.org"} {
-		if host == name {
-			return false
-		}
+	if slices.Contains(ACMECapableDomains, host) {
+		return false
 	}
 
-	for _, suffix := range []string{
-		".example.com", ".example.net", ".example.org",
-		".invalid", ".test", ".localhost",
-	} {
+	for _, suffix := range ACMECapableSuffixes {
 		if strings.HasSuffix(host, suffix) {
 			return false
 		}

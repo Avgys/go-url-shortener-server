@@ -2,12 +2,13 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 )
 
-type JsonConfig struct {
+type JSONConfig struct {
 	AppURL             string `json:"server_address,omitempty"`
 	RedirectDomain     string `json:"base_url,omitempty"`
 	FileStoragePath    string `json:"file_storage_path,omitempty"`
@@ -17,14 +18,18 @@ type JsonConfig struct {
 	HttpsEnabled       bool   `json:"enable_https,omitempty"`
 }
 
-func getJsonConfig(cfg *Config, args []string) error {
+var jsonConfigName flagName = flagName{short: "-c", long: "-c="}
+
+func parseJSONConfig(cfg *Config, args []string) error {
 	fs := flag.NewFlagSet("shortener-config", flag.ContinueOnError)
+
+	args = filterFlags(args, []flagName{jsonConfigName})
 
 	var configPath string
 	fs.StringVar(&configPath, "c", "", "config path")
 
 	err := fs.Parse(args)
-	if err != nil {
+	if err != nil && errors.Is(err, flag.ErrHelp) {
 		return fmt.Errorf("error parsing flags, %w", err)
 	}
 
@@ -44,7 +49,7 @@ func getJsonConfig(cfg *Config, args []string) error {
 		return fmt.Errorf("error opening config file, %w", err)
 	}
 
-	var newCfg JsonConfig
+	var newCfg JSONConfig
 	err = json.NewDecoder(f).Decode(&newCfg)
 
 	if err != nil {

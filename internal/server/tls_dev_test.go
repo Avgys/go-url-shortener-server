@@ -15,7 +15,7 @@ func TestIsPublicACMEDomain(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := isPublicACMEDomain(tt.host); got != tt.want {
+		if got := isACMECapable(tt.host); got != tt.want {
 			t.Errorf("isPublicACMEDomain(%q) = %v, want %v", tt.host, got, tt.want)
 		}
 	}

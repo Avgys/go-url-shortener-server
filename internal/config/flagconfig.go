@@ -1,6 +1,24 @@
 package config
 
-import "flag"
+import (
+	"flag"
+	"strings"
+)
+
+type flagName struct {
+	short string
+	long  string
+}
+
+var configNames []flagName = []flagName{
+	{short: "-a", long: "-a="},
+	{short: "-b", long: "-b="},
+	{short: "-f", long: "-f="},
+	{short: "-d", long: "-d="},
+	{short: "-audit-file", long: "-audit-file="},
+	{short: "-audit-url", long: "-audit-url="},
+	{short: "-s", long: "-s="},
+}
 
 func parseFlags(cfg *Config, args []string) error {
 	fs := flag.NewFlagSet("shortener", flag.ContinueOnError)
@@ -13,5 +31,37 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.AuditURL, "audit-url", "", "remote audit receiver URL (empty disables remote audit)")
 	fs.BoolVar(&cfg.HttpsEnabled, "s", false, "enable https")
 
+	args = filterFlags(args, configNames)
+
 	return fs.Parse(args)
+}
+
+func filterFlags(args []string, flagNames []flagName) []string {
+	filtered := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+
+		for _, flagName := range flagNames {
+			if a == flagName.short {
+
+				filtered = append(filtered, a)
+
+				if i+1 < len(args) {
+					i++
+					value := args[i]
+
+					if !strings.HasPrefix(value, "-") {
+						filtered = append(filtered, value)
+					}
+				}
+				continue
+			}
+
+			if strings.HasPrefix(a, flagName.long) {
+				filtered = append(filtered, a)
+			}
+		}
+	}
+
+	return filtered
 }

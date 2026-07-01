@@ -31,7 +31,6 @@ var (
 )
 
 func main() {
-
 	log, closeLogger, err := logger.NewBaseLogger(logger.GetFuncName())
 	if err != nil {
 		fmt.Println("failed to create logger", err)
@@ -57,7 +56,7 @@ func run(log *zerolog.Logger) error {
 
 	g, ctx := errgroup.WithContext(rootCtx)
 
-	startSrv, shutdownSrv, err := server.NewServer(ctx, log)
+	srv, err := server.NewServer(ctx, log)
 
 	if err != nil {
 		return err
@@ -88,7 +87,7 @@ func run(log *zerolog.Logger) error {
 			}
 		}()
 
-		if err := startSrv(); err != nil {
+		if err := srv.Start(); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
@@ -108,7 +107,7 @@ func run(log *zerolog.Logger) error {
 		shutdownTimeoutCtx, cancelShutdownTimeoutCtx := context.WithTimeout(context.Background(), shutdownServerLimit)
 		defer cancelShutdownTimeoutCtx()
 
-		shutdownErr := shutdownSrv(shutdownTimeoutCtx)
+		shutdownErr := srv.Shutdown(shutdownTimeoutCtx)
 		if shutdownErr != nil {
 			log.Printf("an error occurred during server shutdown: %v", shutdownErr)
 		}

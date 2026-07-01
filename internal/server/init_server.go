@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -22,36 +23,71 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
-func NewServer(done context.Context, traceLogger *zerolog.Logger) (func() error, func(context.Context) error, error) {
+type Server struct {
+	Start    func() error
+	Shutdown func(context.Context) error
+}
+
+func NewServer(done context.Context, traceLogger *zerolog.Logger) (*Server, error) {
 
 	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	h, err := prepareDI(done, cfg, traceLogger)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	r := router.NewRouter(h)
 
 	hosts := autocertHosts(cfg)
 
-	var (
-		tlsConfig   *tls.Config
-		certManager *autocert.Manager
-	)
+	tlsConfig, certManager, err := getTlsServer(cfg, hosts, traceLogger)
+	if err != nil {
+		return nil, err
+	}
+
+	srv := &http.Server{
+		Addr:      cfg.AppURL.Host,
+		Handler:   r,
+		TLSConfig: tlsConfig,
+	}
+
+	var certSrv *http.Server
+	if certManager != nil {
+		certSrv = &http.Server{
+			Addr:    ":http",
+			Handler: certManager.HTTPHandler(srv.Handler),
+		}
+	}
+
+	startSrv := getStartFn(cfg, certManager, certSrv, traceLogger, srv)
+	shutdownFn := getShutdownFn(certManager, certSrv, srv)
+
+	return &Server{
+		Start:    startSrv,
+		Shutdown: shutdownFn,
+	}, nil
+}
+
+func getTlsServer(cfg *config.Config, hosts []string, traceLogger *zerolog.Logger) (*tls.Config, *autocert.Manager, error) {
+
+	var tlsConfig *tls.Config
+	var certManager *autocert.Manager
 
 	if cfg.HttpsEnabled {
 		if useSelfSignedTLS(hosts) {
 			var err error
 			tlsConfig, err = generateSelfSignedTLSConfig(hosts)
+
 			if err != nil {
 				return nil, nil, fmt.Errorf("self-signed TLS: %w", err)
 			}
+
 			traceLogger.Warn().
 				Strs("hosts", hosts).
 				Msg("using self-signed TLS; skipping autocert HTTP on :80")
@@ -61,23 +97,16 @@ func NewServer(done context.Context, traceLogger *zerolog.Logger) (func() error,
 		}
 	}
 
-	srv := &http.Server{
-		Addr:      cfg.AppURL.Host,
-		Handler:   r,
-		TLSConfig: tlsConfig,
-	}
+	return tlsConfig, certManager, nil
+}
 
-	startSrv := srv.ListenAndServe
-
+func getStartFn(cfg *config.Config, certManager *autocert.Manager, certSrv *http.Server, traceLogger *zerolog.Logger, srv *http.Server) func() error {
+	var startSrv func() error
 	if cfg.HttpsEnabled {
 		startSrv = func() error {
 			if certManager != nil {
 				go func() {
-					httpSrv := &http.Server{
-						Addr:    ":http",
-						Handler: certManager.HTTPHandler(srv.Handler),
-					}
-					if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					if err := certSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 						traceLogger.Error().Err(err).Msg("autocert HTTP server failed")
 					}
 				}()
@@ -85,9 +114,30 @@ func NewServer(done context.Context, traceLogger *zerolog.Logger) (func() error,
 
 			return srv.ListenAndServeTLS("", "")
 		}
+	} else {
+		startSrv = srv.ListenAndServe
 	}
 
-	return startSrv, srv.Shutdown, nil
+	return startSrv
+}
+
+func getShutdownFn(certManager *autocert.Manager, certSrv *http.Server, srv *http.Server) func(ctx context.Context) error {
+	shutdownFn := func(ctx context.Context) error {
+		var shutdownErrs error = nil
+		if certManager != nil {
+			if err := certSrv.Shutdown(ctx); err != nil {
+				shutdownErrs = errors.Join(shutdownErrs, err)
+			}
+		}
+
+		if err := srv.Shutdown(ctx); err != nil {
+			shutdownErrs = errors.Join(shutdownErrs, err)
+		}
+
+		return shutdownErrs
+	}
+
+	return shutdownFn
 }
 
 func newAutocertManager(hosts []string) *autocert.Manager {

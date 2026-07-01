@@ -21,7 +21,7 @@ type Config struct {
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 	cfg := getDefaultConfig()
 
-	if err := getJsonConfig(cfg, args); err != nil {
+	if err := parseJSONConfig(cfg, args); err != nil {
 		return nil, fmt.Errorf("error parsing config file, %w", err)
 	}
 
