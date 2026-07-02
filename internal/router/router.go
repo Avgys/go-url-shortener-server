@@ -22,7 +22,7 @@ func NewRouter(h *handler.Handlers) *chi.Mux {
 
 func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 
-	r.Use(middleware.RealIP, middlewares.Recoverer, middlewares.WithCompression, middlewares.WithLogging)
+	r.Use(middlewares.Recoverer, middlewares.WithCompression, middlewares.WithLogging)
 
 	r.Mount("/debug", middleware.Profiler())
 
@@ -47,6 +47,8 @@ func setEndpoints(r *chi.Mux, h *handler.Handlers) {
 			r.With(middleware.AllowContentType(jsonType)).Delete("/urls", h.DeleteShortURL)
 		})
 	})
+
+	r.With(middleware.RealIP, middlewares.WithTrustedSubnet(h)).Get("/api/internal/stats", h.GetURLsStats)
 
 	r.With(middlewares.AuthRequireCookie(false)).Get("/{url}", h.Redirect)
 	r.Get("/ping", h.Ping)

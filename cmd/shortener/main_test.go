@@ -56,7 +56,7 @@ func (s *ShortenerSuite) getTestServer() *httptest.Server {
 	sf, err := shortifier.NewShortifier(s.T().Context(), strGen, store, mockAudit, &cfg.RedirectDomain)
 	s.Require().NoError(err)
 
-	h := handler.NewHandlers(sf, store, mockAudit)
+	h := handler.NewHandlers(sf, store, mockAudit, cfg)
 
 	ts := httptest.NewUnstartedServer(router.NewRouter(h))
 	ts.Listener = ln

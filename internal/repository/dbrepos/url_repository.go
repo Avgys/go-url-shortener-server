@@ -56,6 +56,19 @@ func (s *DBStore) ResolveShortURL(ctx context.Context, shortURL string) (dbmodel
 	return u, nil
 }
 
+func (s *DBStore) GetURLsStats(ctx context.Context) (dbmodel.GetURLsStatsRow, error) {
+	row, err := s.queries.GetURLsStats(ctx)
+
+	if err != nil {
+		return dbmodel.GetURLsStatsRow{}, err
+	}
+
+	return dbmodel.GetURLsStatsRow{
+		UniqueLongUrlCount: row.UniqueLongUrlCount,
+		UniqueUserIDCount:  row.UniqueUserIDCount,
+	}, nil
+}
+
 func (s *DBStore) StoreBatch(ctx context.Context, input map[string]string, userID int64) (retryToInsert []string, alreadyStoredURL map[string]string, err error) {
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, dbOpTimeout)

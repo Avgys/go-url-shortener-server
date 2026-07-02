@@ -16,6 +16,7 @@ type Config struct {
 	AuditFile          string                `env:"AUDIT_FILE" json:"audit_file,omitempty"`
 	AuditURL           string                `env:"AUDIT_URL" json:"audit_url,omitempty"`
 	HttpsEnabled       bool                  `env:"ENABLE_HTTPS" json:"enable_https,omitempty"`
+	TrustedSubnet      string                `env:"TRUSTED_SUBNET" json:"trusted_subnet,omitempty"`
 }
 
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {

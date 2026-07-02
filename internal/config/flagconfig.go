@@ -25,15 +25,20 @@ func parseFlags(cfg *Config, args []string) error {
 
 	fs.Var(&cfg.AppURL, "a", "address of HTTP server")
 	fs.Var(&cfg.RedirectDomain, "b", "address of redirect")
-	fs.StringVar(&cfg.FileStoragePath, "f", "", "file storage name")
-	fs.StringVar(&cfg.DBConnectionString, "d", "", "db connection string url")
-	fs.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disables file audit)")
-	fs.StringVar(&cfg.AuditURL, "audit-url", "", "remote audit receiver URL (empty disables remote audit)")
-	fs.BoolVar(&cfg.HttpsEnabled, "s", false, "enable https")
+	fs.StringVar(&cfg.FileStoragePath, "f", cfg.FileStoragePath, "file storage name")
+	fs.StringVar(&cfg.DBConnectionString, "d", cfg.DBConnectionString, "db connection string url")
+	fs.StringVar(&cfg.AuditFile, "audit-file", cfg.AuditFile, "path to audit log file (empty disables file audit)")
+	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "remote audit receiver URL (empty disables remote audit)")
+	fs.BoolVar(&cfg.HttpsEnabled, "s", cfg.HttpsEnabled, "enable https")
+	fs.StringVar(&cfg.TrustedSubnet, "t", cfg.TrustedSubnet, "trusted subnet to fetch stats")
 
 	args = filterFlags(args, configNames)
 
-	return fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func filterFlags(args []string, flagNames []flagName) []string {

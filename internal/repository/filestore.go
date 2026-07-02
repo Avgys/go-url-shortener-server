@@ -220,3 +220,7 @@ func (fs *FileStore) DeleteURLS(context context.Context, groupedByUser map[int64
 
 	return deleted, err
 }
+
+func (fs *FileStore) GetURLsStats(ctx context.Context) (dbmodel.GetURLsStatsRow, error) {
+	return fs.store.GetURLsStats(ctx)
+}

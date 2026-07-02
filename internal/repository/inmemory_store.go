@@ -141,3 +141,27 @@ func (s *InMemoryStore) DeleteURLS(context context.Context, groupedByUser map[in
 
 	return recordUpdate, nil
 }
+
+func (s *InMemoryStore) GetURLsStats(ctx context.Context) (dbmodel.GetURLsStatsRow, error) {
+	_ = ctx
+
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	uniqueLongURLs := make(map[string]struct{}, len(s.shortURLToModel))
+	uniqueUserIDs := make(map[int64]struct{}, len(s.shortURLToModel))
+
+	for _, row := range s.shortURLToModel {
+		if row == nil {
+			continue
+		}
+
+		uniqueLongURLs[row.OriginalURL] = struct{}{}
+		uniqueUserIDs[row.UserID] = struct{}{}
+	}
+
+	return dbmodel.GetURLsStatsRow{
+		UniqueLongUrlCount: int64(len(uniqueLongURLs)),
+		UniqueUserIDCount:  int64(len(uniqueUserIDs)),
+	}, nil
+}

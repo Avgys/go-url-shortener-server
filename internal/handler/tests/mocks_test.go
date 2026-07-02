@@ -105,7 +105,7 @@ func buildRouter(tb testing.TB, testStructure *innerStructure) *chi.Mux {
 		tb.Fatal(err)
 	}
 
-	h := handler.NewHandlers(sf, testStructure.store, mockAudit)
+	h := handler.NewHandlers(sf, testStructure.store, mockAudit, nil)
 
 	return router.NewRouter(h)
 }

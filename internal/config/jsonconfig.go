@@ -15,7 +15,14 @@ type JSONConfig struct {
 	DBConnectionString string `json:"database_dsn,omitempty"`
 	AuditFile          string `json:"audit_file,omitempty"`
 	AuditURL           string `json:"audit_url,omitempty"`
-	HttpsEnabled       bool   `json:"enable_https,omitempty"`
+	HttpsEnabled       *bool  `json:"enable_https,omitempty"`
+	TrustedSubnet      string `json:"trusted_subnet,omitempty"`
+}
+
+func setStringIfNotEmpty(dst *string, src string) {
+	if src != "" {
+		*dst = src
+	}
 }
 
 var jsonConfigName flagName = flagName{short: "-c", long: "-c="}
@@ -60,19 +67,27 @@ func parseJSONConfig(cfg *Config, args []string) error {
 		return fmt.Errorf("error closing config file, %w", err)
 	}
 
-	if err := cfg.AppURL.Set(newCfg.AppURL); err != nil {
-		return fmt.Errorf("error parsing server_address from config file, %w", err)
+	if newCfg.AppURL != "" {
+		if err := cfg.AppURL.Set(newCfg.AppURL); err != nil {
+			return fmt.Errorf("error parsing server_address from config file, %w", err)
+		}
 	}
 
-	if err := cfg.RedirectDomain.Set(newCfg.RedirectDomain); err != nil {
-		return fmt.Errorf("error parsing base_url from config file, %w", err)
+	if newCfg.RedirectDomain != "" {
+		if err := cfg.RedirectDomain.Set(newCfg.RedirectDomain); err != nil {
+			return fmt.Errorf("error parsing base_url from config file, %w", err)
+		}
 	}
 
-	cfg.FileStoragePath = newCfg.FileStoragePath
-	cfg.DBConnectionString = newCfg.DBConnectionString
-	cfg.AuditFile = newCfg.AuditFile
-	cfg.AuditURL = newCfg.AuditURL
-	cfg.HttpsEnabled = newCfg.HttpsEnabled
+	setStringIfNotEmpty(&cfg.FileStoragePath, newCfg.FileStoragePath)
+	setStringIfNotEmpty(&cfg.DBConnectionString, newCfg.DBConnectionString)
+	setStringIfNotEmpty(&cfg.AuditFile, newCfg.AuditFile)
+	setStringIfNotEmpty(&cfg.AuditURL, newCfg.AuditURL)
+	setStringIfNotEmpty(&cfg.TrustedSubnet, newCfg.TrustedSubnet)
+
+	if newCfg.HttpsEnabled != nil {
+		cfg.HttpsEnabled = *newCfg.HttpsEnabled
+	}
 
 	return nil
 }

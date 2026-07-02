@@ -213,7 +213,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 		return nil, fmt.Errorf("error initializing shortifier: %w", err)
 	}
 
-	h := handler.NewHandlers(shortifierService, store, auditService)
+	h := handler.NewHandlers(shortifierService, store, auditService, cfg)
 
 	return h, nil
 }

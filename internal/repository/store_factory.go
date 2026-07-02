@@ -17,6 +17,7 @@ type Repository interface {
 	GetURLsByUserID(ctx context.Context, userID int64) ([]dbmodel.DBURL, error)
 	TestConnection(ctx context.Context) error
 	DeleteURLS(context context.Context, groupedByUser map[int64][]string) ([]dbmodel.DBURL, error)
+	GetURLsStats(ctx context.Context) (dbmodel.GetURLsStatsRow, error)
 	Close() error
 }
 

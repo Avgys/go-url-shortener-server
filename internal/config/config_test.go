@@ -142,3 +142,38 @@ func (s *ConfigSuite) TestGetConfig_ConfigFileAndFlagOverrides() {
 	s.Equal("http://flag-base", cfg.RedirectDomain.String())
 	s.Equal("flagdb", cfg.DBConnectionString)
 }
+
+func (s *ConfigSuite) TestGetConfig_PartialJsonPreservesDefaults() {
+	s.clearEnv("CONFIG")
+	s.clearEnv("SERVER_ADDRESS")
+	s.clearEnv("DATABASE_DSN")
+	s.clearEnv("BASE_URL")
+	s.clearEnv("FILE_STORAGE_PATH")
+	s.clearEnv("AUDIT_FILE")
+	s.clearEnv("AUDIT_URL")
+	s.clearEnv("ENABLE_HTTPS")
+	s.clearEnv("TRUSTED_SUBNET")
+
+	tmpFile, err := os.CreateTemp("", "shortener-config-*.json")
+	s.Require().NoError(err)
+	s.T().Cleanup(func() {
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	_, err = tmpFile.WriteString(`{
+  "database_dsn": "jsondb"
+}`)
+	s.Require().NoError(err)
+	s.Require().NoError(tmpFile.Close())
+
+	logger := zerolog.New(io.Discard)
+	cfg, err := GetConfig([]string{"-c", tmpFile.Name()}, &logger)
+	s.Require().NoError(err)
+
+	s.Equal("localhost:8080", cfg.AppURL.Host)
+	s.Equal("http://localhost:8080", cfg.RedirectDomain.String())
+	s.Equal("jsondb", cfg.DBConnectionString)
+	s.Empty(cfg.FileStoragePath)
+	s.False(cfg.HttpsEnabled)
+	s.Empty(cfg.TrustedSubnet)
+}
