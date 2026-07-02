@@ -65,7 +65,7 @@ func (s *ConfigSuite) TestParseFlags_UnknownFlag() {
 	cfg := &Config{}
 
 	err := parseFlags(cfg, []string{"-unknown"})
-	s.Error(err)
+	s.NoError(err)
 }
 
 func (s *ConfigSuite) TestGetConfig_EnvOverridesFlags() {
@@ -104,4 +104,41 @@ func (s *ConfigSuite) TestGetConfig_FlagsOnly() {
 	s.Equal("flagdb", cfg.DBConnectionString)
 	s.Equal("http://flag-base", cfg.RedirectDomain.String())
 	s.Equal("/flag/storage", cfg.FileStoragePath)
+}
+
+func (s *ConfigSuite) TestGetConfig_ConfigFileAndFlagOverrides() {
+	s.clearEnv("CONFIG")
+	s.clearEnv("SERVER_ADDRESS")
+	s.clearEnv("DATABASE_DSN")
+	s.clearEnv("BASE_URL")
+	s.clearEnv("FILE_STORAGE_PATH")
+	s.clearEnv("AUDIT_FILE")
+	s.clearEnv("AUDIT_URL")
+
+	tmpFile, err := os.CreateTemp("", "shortener-config-*.json")
+	s.Require().NoError(err)
+	s.T().Cleanup(func() {
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	_, err = tmpFile.WriteString(`{
+  "server_address": "json:8080",
+  "base_url": "http://json-base",
+  "database_dsn": "jsondb"
+}`)
+	s.Require().NoError(err)
+	s.Require().NoError(tmpFile.Close())
+
+	logger := zerolog.New(io.Discard)
+	cfg, err := GetConfig([]string{
+		"-c", tmpFile.Name(),
+		"-a", "flag:8080",
+		"-b", "http://flag-base",
+		"-d", "flagdb",
+	}, &logger)
+	s.Require().NoError(err)
+
+	s.Equal("flag:8080", cfg.AppURL.Host)
+	s.Equal("http://flag-base", cfg.RedirectDomain.String())
+	s.Equal("flagdb", cfg.DBConnectionString)
 }

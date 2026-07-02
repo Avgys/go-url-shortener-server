@@ -19,6 +19,18 @@ Middleware includes request logging, gzip request/response handling, and panic r
 
 ---
 
+## Graceful shutdown
+
+When the process receives `SIGINT`/`SIGTERM`, the app starts graceful shutdown:
+
+- stops accepting new HTTP requests;
+- waits up to `5s` for in-flight handlers to finish;
+- cancels unfinished request contexts after the timeout.
+
+This means an already running `POST /api/shorten/batch` may still finish if it completes within the shutdown timeout.
+
+---
+
 ## REST API
 
 | Method | Path | Content-Type | Auth cookie | Description |

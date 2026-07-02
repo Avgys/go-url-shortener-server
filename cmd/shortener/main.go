@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	shutdownServerLimit = 5 * time.Second
+	shutdownServerLimit = 30 * time.Second
 	shutdownLimit       = 10 * time.Second
 )
 
@@ -31,7 +31,6 @@ var (
 )
 
 func main() {
-
 	log, closeLogger, err := logger.NewBaseLogger(logger.GetFuncName())
 	if err != nil {
 		fmt.Println("failed to create logger", err)
@@ -50,25 +49,9 @@ func main() {
 	log.Println("bye-bye")
 }
 
-func printBuildInfo() {
-
-	for _, field := range []struct {
-		label string
-		value string
-	}{
-		{"Build version", BuildVersion},
-		{"Build date", BuildDate},
-		{"Build commit hash", BuildCommitHash},
-		{"Build commit name", BuildCommitName},
-		{"Build branch", BuildBranch},
-	} {
-		fmt.Printf("%s: %s\n", field.label, field.value)
-	}
-}
-
 func run(log *zerolog.Logger) error {
 
-	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt, syscall.SIGQUIT)
 	defer stop()
 
 	g, ctx := errgroup.WithContext(rootCtx)
@@ -104,7 +87,7 @@ func run(log *zerolog.Logger) error {
 			}
 		}()
 
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.Start(); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
