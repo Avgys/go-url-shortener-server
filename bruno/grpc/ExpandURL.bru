@@ -1,0 +1,32 @@
+meta {
+  name: ExpandURL
+  type: grpc
+  seq: 2
+}
+
+grpc {
+  url: {{grpc_host}}
+  method: /shorten.ShortenerService/ExpandURL
+  body: grpc
+  protoPath: ../proto/shorten.proto
+  auth: none
+  methodType: unary
+}
+
+metadata {
+  authorization: {{auth_token}}
+}
+
+body:grpc {
+  name: message 1
+  content: '''
+    {
+      "id": "{{short_id}}"
+    }
+  '''
+}
+
+docs {
+  Resolves a short URL id to the original long URL.
+  Set `short_id` to the path segment from a shortened URL (for example `hash1`, not the full URL).
+}

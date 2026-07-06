@@ -1,0 +1,37 @@
+meta {
+  name: ShortenURL
+  type: grpc
+  seq: 1
+}
+
+grpc {
+  url: {{grpc_host}}
+  method: /shorten.ShortenerService/ShortenURL
+  body: grpc
+  protoPath: ../proto/shorten.proto
+  auth: none
+  methodType: unary
+}
+
+metadata {
+  authorization: {{auth_token}}
+}
+
+body:grpc {
+  name: message 1
+  content: '''
+    {
+      "url": "{{long_url}}"
+    }
+  '''
+}
+
+vars:pre-request {
+  grpc_host: localhost:3200
+}
+
+docs {
+  Shortens a long URL for the authenticated user.
+  Leave `auth_token` empty on the first call — the server issues a JWT in response metadata (`authorization`).
+  Copy that value into the `auth_token` environment variable for subsequent requests.
+}

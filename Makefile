@@ -1,7 +1,7 @@
 APP_NAME := shortener
 CMD_DIR := .
 VERSION := 1.0.0
-BUILD_DATE := $(shell date +%Y-%m-%d)
+# BUILD_DATE := $(shell date +%Y-%m-%d)
 export CGO_ENABLED := 1
 
 COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
@@ -91,3 +91,8 @@ hey-shorten-windows:
 	}
 run-benchmarks:
 	go test -bench="." -benchmem ./internal/handler/tests/...
+
+proto-generate:
+	protoc --go_out=. --go_opt=paths=source_relative \
+	--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+	--go_opt=default_api_level=API_OPAQUE proto/shorten.proto \

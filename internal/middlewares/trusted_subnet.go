@@ -26,6 +26,11 @@ func WithTrustedSubnet(h *handler.Handlers) func(http.Handler) http.Handler {
 
 			defer func() { _ = close() }()
 
+			if h.Config == nil || h.Config.TrustedSubnet == "" {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
 			trustedSubnet, err := netip.ParsePrefix(h.Config.TrustedSubnet)
 			if err != nil {
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -38,12 +43,12 @@ func WithTrustedSubnet(h *handler.Handlers) func(http.Handler) http.Handler {
 				return
 			}
 
-			var statusCode = http.StatusContinue
+			statusCode := http.StatusForbidden
 
 			if trustedSubnet.Contains(realIP) {
+				statusCode = http.StatusOK
 				next.ServeHTTP(w, r)
 			} else {
-				statusCode = http.StatusForbidden
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			}
 

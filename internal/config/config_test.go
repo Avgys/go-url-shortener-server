@@ -40,6 +40,7 @@ func (s *ConfigSuite) TestParseFlags() {
 		"-f", "/tmp/storage",
 		"-audit-file", "/var/log/audit.log",
 		"-audit-url", "http://audit.example.com/events",
+		"-grpc", "50051",
 	})
 	s.Require().NoError(err)
 
@@ -49,6 +50,7 @@ func (s *ConfigSuite) TestParseFlags() {
 	s.Equal("/tmp/storage", cfg.FileStoragePath)
 	s.Equal("/var/log/audit.log", cfg.AuditFile)
 	s.Equal("http://audit.example.com/events", cfg.AuditURL)
+	s.Equal(50051, cfg.GRPCPort)
 }
 
 func (s *ConfigSuite) TestParseFlags_AuditDisabledByDefault() {
@@ -175,5 +177,6 @@ func (s *ConfigSuite) TestGetConfig_PartialJsonPreservesDefaults() {
 	s.Equal("jsondb", cfg.DBConnectionString)
 	s.Empty(cfg.FileStoragePath)
 	s.False(cfg.HttpsEnabled)
-	s.Empty(cfg.TrustedSubnet)
+	s.Equal("127.0.0.0/8", cfg.TrustedSubnet)
+	s.Equal(3200, cfg.GRPCPort)
 }

@@ -18,6 +18,7 @@ var configNames []flagName = []flagName{
 	{short: "-audit-file", long: "-audit-file="},
 	{short: "-audit-url", long: "-audit-url="},
 	{short: "-s", long: "-s="},
+	{short: "-grpc", long: "-grpc="},
 }
 
 func parseFlags(cfg *Config, args []string) error {
@@ -30,6 +31,7 @@ func parseFlags(cfg *Config, args []string) error {
 	fs.StringVar(&cfg.AuditFile, "audit-file", cfg.AuditFile, "path to audit log file (empty disables file audit)")
 	fs.StringVar(&cfg.AuditURL, "audit-url", cfg.AuditURL, "remote audit receiver URL (empty disables remote audit)")
 	fs.BoolVar(&cfg.HttpsEnabled, "s", cfg.HttpsEnabled, "enable https")
+	fs.IntVar(&cfg.GRPCPort, "grpc", cfg.GRPCPort, "gRPC server port")
 	fs.StringVar(&cfg.TrustedSubnet, "t", cfg.TrustedSubnet, "trusted subnet to fetch stats")
 
 	args = filterFlags(args, configNames)

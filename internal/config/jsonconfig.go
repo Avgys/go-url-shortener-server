@@ -17,6 +17,7 @@ type JSONConfig struct {
 	AuditURL           string `json:"audit_url,omitempty"`
 	HttpsEnabled       *bool  `json:"enable_https,omitempty"`
 	TrustedSubnet      string `json:"trusted_subnet,omitempty"`
+	GRPCPort           *int   `json:"grpc_port,omitempty"`
 }
 
 func setStringIfNotEmpty(dst *string, src string) {
@@ -87,6 +88,10 @@ func parseJSONConfig(cfg *Config, args []string) error {
 
 	if newCfg.HttpsEnabled != nil {
 		cfg.HttpsEnabled = *newCfg.HttpsEnabled
+	}
+
+	if newCfg.GRPCPort != nil {
+		cfg.GRPCPort = *newCfg.GRPCPort
 	}
 
 	return nil

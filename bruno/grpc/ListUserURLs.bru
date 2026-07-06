@@ -1,0 +1,35 @@
+meta {
+  name: ListUserURLs
+  type: grpc
+  seq: 3
+}
+
+grpc {
+  url: {{grpc_host}}
+  method: /shorten.ShortenerService/ListUserURLs
+  body: grpc
+  protoPath: ../proto/shorten.proto
+  auth: none
+  methodType: unary
+}
+
+metadata {
+  authorization: {{auth_token}}
+}
+
+body:grpc {
+  name: message 1
+  content: '''
+    {}
+  '''
+}
+
+vars:pre-request {
+  auth_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODMzNjg3NjgsInVzZXJfaWQiOjE0NjcxMjQ4MzM4Mjk1MDk4ODh9.YD2ZjU-wJoWzSAOm__fRfax_3Bq48Mpvhgk38ge0vOI
+  grpc_host: localhost:3200
+}
+
+docs {
+  Lists short/original URL pairs for the authenticated user.
+  Requires `auth_token` from a prior ShortenURL call (or any RPC that returned one).
+}

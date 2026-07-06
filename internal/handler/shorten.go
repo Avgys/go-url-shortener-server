@@ -27,7 +27,7 @@ func (h *Handlers) ShortifyURL(w http.ResponseWriter, r *http.Request) {
 
 	url := string(body)
 
-	resultURL, err := h.Shortifier.ShortenURL(url, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(ctx, url, traceLogger)
 
 	if err != nil {
 		if httpshared.HandleErr(w, r, err, traceLogger) {
@@ -63,7 +63,7 @@ func (h *Handlers) ShortenURL(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resultURL, err := h.Shortifier.ShortenURL(reqModel.URL, traceLogger, r)
+	resultURL, err := h.Shortifier.ShortenURL(ctx, reqModel.URL, traceLogger)
 	if err != nil {
 		if httpshared.HandleErr(w, r, err, traceLogger) {
 			return
@@ -107,7 +107,7 @@ func (h *Handlers) ShortenBatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	shortenBatch, err := h.Shortifier.ShortenBatch(reqModel, traceLogger, r)
+	shortenBatch, err := h.Shortifier.ShortenBatch(r.Context(), reqModel, traceLogger)
 
 	if err != nil {
 		if httpshared.HandleErr(w, r, err, traceLogger) {
