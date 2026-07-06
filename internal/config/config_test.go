@@ -41,6 +41,7 @@ func (s *ConfigSuite) TestParseFlags() {
 		"-audit-file", "/var/log/audit.log",
 		"-audit-url", "http://audit.example.com/events",
 		"-grpc", "50051",
+		"-t", "10.0.0.0/8",
 	})
 	s.Require().NoError(err)
 
@@ -51,6 +52,7 @@ func (s *ConfigSuite) TestParseFlags() {
 	s.Equal("/var/log/audit.log", cfg.AuditFile)
 	s.Equal("http://audit.example.com/events", cfg.AuditURL)
 	s.Equal(50051, cfg.GRPCPort)
+	s.Equal("10.0.0.0/8", cfg.TrustedSubnet)
 }
 
 func (s *ConfigSuite) TestParseFlags_AuditDisabledByDefault() {

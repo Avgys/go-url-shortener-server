@@ -19,6 +19,7 @@ var configNames []flagName = []flagName{
 	{short: "-audit-url", long: "-audit-url="},
 	{short: "-s", long: "-s="},
 	{short: "-grpc", long: "-grpc="},
+	{short: "-t", long: "-t="},
 }
 
 func parseFlags(cfg *Config, args []string) error {

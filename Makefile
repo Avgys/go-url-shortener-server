@@ -1,7 +1,11 @@
 APP_NAME := shortener
 CMD_DIR := .
 VERSION := 1.0.0
-# BUILD_DATE := $(shell date +%Y-%m-%d)
+ifeq ($(OS),Windows_NT)
+BUILD_DATE = $(shell powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd")
+else
+BUILD_DATE = $(shell date +%Y-%m-%d)
+endif
 export CGO_ENABLED := 1
 
 COMPOSE_LOCAL := docker compose -f docker-compose.local.yml
