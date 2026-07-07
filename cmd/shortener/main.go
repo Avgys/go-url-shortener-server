@@ -65,12 +65,12 @@ func run(log *zerolog.Logger) error {
 
 	g, ctx := errgroup.WithContext(rootCtx)
 	g.Go(func() error { return runHTTPServer(ctx, log, cfg, handlers) })
-	g.Go(func() error { return grpcServer(ctx, log, cfg, handlers) })
+	g.Go(func() error { return runGRPCServer(ctx, log, cfg, handlers) })
 
 	return g.Wait()
 }
 
-func grpcServer(rootCtx context.Context, log *zerolog.Logger, cfg *config.Config, handlers *handler.Handlers) error {
+func runGRPCServer(rootCtx context.Context, log *zerolog.Logger, cfg *config.Config, handlers *handler.Handlers) error {
 	listenAddr := GRPCListenAddr(cfg.GRPCPort)
 	log.Print("grpc server started on " + listenAddr)
 	return ServeGRPC(rootCtx, handlers.Shortifier, listenAddr)

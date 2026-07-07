@@ -43,19 +43,17 @@ func WithTrustedSubnet(h *handler.Handlers) func(http.Handler) http.Handler {
 				return
 			}
 
-			statusCode := http.StatusForbidden
-
-			if trustedSubnet.Contains(realIP) {
-				statusCode = http.StatusOK
+			isTrusted := trustedSubnet.Contains(realIP)
+			if isTrusted {
 				next.ServeHTTP(w, r)
 			} else {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			}
 
-			traceLogger.Info().
+			traceLogger.Debug().
 				Str("realip", realIP.String()).
 				Str("trustedSubnet", trustedSubnet.String()).
-				Str("status", http.StatusText(statusCode)).
+				Bool("isTrusted", isTrusted).
 				Send()
 		})
 	}

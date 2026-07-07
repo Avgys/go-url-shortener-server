@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"go-url-shortener/internal/logger"
-	dbmodel "go-url-shortener/internal/model/db"
+	"go-url-shortener/internal/model/responses"
 	httphelper "go-url-shortener/internal/shared/http"
 )
 
@@ -20,7 +20,7 @@ func (h *Handlers) GetURLsStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := dbmodel.GetURLsStatsRow{
+	response := responses.GetURLsStatsResponse{
 		UniqueLongUrlCount: dbURL.UniqueLongUrlCount,
 		UniqueUserIDCount:  dbURL.UniqueUserIDCount,
 	}

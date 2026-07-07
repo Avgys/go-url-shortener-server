@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
 	"go-url-shortener/internal/interceptors"
 	"go-url-shortener/internal/service/protoservice"
@@ -16,7 +15,7 @@ import (
 )
 
 func GRPCListenAddr(port int) string {
-	return ":" + strconv.Itoa(port)
+	return fmt.Sprintf(":%d", port)
 }
 
 func NewGRPCServer(sf *shortifier.Shortifier) *grpc.Server {
