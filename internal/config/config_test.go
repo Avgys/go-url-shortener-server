@@ -40,6 +40,8 @@ func (s *ConfigSuite) TestParseFlags() {
 		"-f", "/tmp/storage",
 		"-audit-file", "/var/log/audit.log",
 		"-audit-url", "http://audit.example.com/events",
+		"-grpc", "50051",
+		"-t", "10.0.0.0/8",
 	})
 	s.Require().NoError(err)
 
@@ -49,6 +51,8 @@ func (s *ConfigSuite) TestParseFlags() {
 	s.Equal("/tmp/storage", cfg.FileStoragePath)
 	s.Equal("/var/log/audit.log", cfg.AuditFile)
 	s.Equal("http://audit.example.com/events", cfg.AuditURL)
+	s.Equal(50051, cfg.GRPCPort)
+	s.Equal("10.0.0.0/8", cfg.TrustedSubnet)
 }
 
 func (s *ConfigSuite) TestParseFlags_AuditDisabledByDefault() {
@@ -141,4 +145,40 @@ func (s *ConfigSuite) TestGetConfig_ConfigFileAndFlagOverrides() {
 	s.Equal("flag:8080", cfg.AppURL.Host)
 	s.Equal("http://flag-base", cfg.RedirectDomain.String())
 	s.Equal("flagdb", cfg.DBConnectionString)
+}
+
+func (s *ConfigSuite) TestGetConfig_PartialJsonPreservesDefaults() {
+	s.clearEnv("CONFIG")
+	s.clearEnv("SERVER_ADDRESS")
+	s.clearEnv("DATABASE_DSN")
+	s.clearEnv("BASE_URL")
+	s.clearEnv("FILE_STORAGE_PATH")
+	s.clearEnv("AUDIT_FILE")
+	s.clearEnv("AUDIT_URL")
+	s.clearEnv("ENABLE_HTTPS")
+	s.clearEnv("TRUSTED_SUBNET")
+
+	tmpFile, err := os.CreateTemp("", "shortener-config-*.json")
+	s.Require().NoError(err)
+	s.T().Cleanup(func() {
+		_ = os.Remove(tmpFile.Name())
+	})
+
+	_, err = tmpFile.WriteString(`{
+  "database_dsn": "jsondb"
+}`)
+	s.Require().NoError(err)
+	s.Require().NoError(tmpFile.Close())
+
+	logger := zerolog.New(io.Discard)
+	cfg, err := GetConfig([]string{"-c", tmpFile.Name()}, &logger)
+	s.Require().NoError(err)
+
+	s.Equal("localhost:8080", cfg.AppURL.Host)
+	s.Equal("http://localhost:8080", cfg.RedirectDomain.String())
+	s.Equal("jsondb", cfg.DBConnectionString)
+	s.Empty(cfg.FileStoragePath)
+	s.False(cfg.HttpsEnabled)
+	s.Equal("127.0.0.0/8", cfg.TrustedSubnet)
+	s.Equal(3200, cfg.GRPCPort)
 }

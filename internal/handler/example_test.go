@@ -49,7 +49,7 @@ func newExampleHandlers() (*handler.Handlers, context.CancelFunc, error) {
 		logger.SetDiscardOutput(false)
 		return nil, nil, err
 	}
-	return handler.NewHandlers(sf, store, noopAudit{}), cancel, nil
+	return handler.NewHandlers(sf, store, noopAudit{}, nil), cancel, nil
 }
 
 func exampleClaims() *auth.TokenClaims {

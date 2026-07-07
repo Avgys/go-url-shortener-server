@@ -69,6 +69,7 @@ func fillBuildInfoFromGit() {
 }
 
 func printBuildInfo() {
+	fillBuildInfoFromGit()
 
 	for _, field := range []struct {
 		label string

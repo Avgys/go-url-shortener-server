@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 
 	"go-url-shortener/internal/config"
@@ -28,20 +27,7 @@ type Server struct {
 	Shutdown func(context.Context) error
 }
 
-func NewServer(done context.Context, traceLogger *zerolog.Logger) (*Server, error) {
-
-	cfg, err := config.GetConfig(os.Args[1:], traceLogger)
-
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := prepareDI(done, cfg, traceLogger)
-
-	if err != nil {
-		return nil, err
-	}
-
+func NewServer(done context.Context, cfg *config.Config, h *handler.Handlers, traceLogger *zerolog.Logger) (*Server, error) {
 	r := router.NewRouter(h)
 
 	hosts := autocertHosts(cfg)
@@ -178,7 +164,8 @@ func hostnameFromAddr(hostPort string) string {
 	return host
 }
 
-func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Logger) (*handler.Handlers, error) {
+// PrepareHandlers wires repository, audit, shortifier, and HTTP handlers from config.
+func PrepareHandlers(done context.Context, cfg *config.Config, traceLogger *zerolog.Logger) (*handler.Handlers, error) {
 
 	closers := make([]io.Closer, 0)
 
@@ -204,6 +191,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 	//	Audit services initialization
 	auditService := audit.NewAuditService(done, traceLogger)
 	auditService.Init(cfg, traceLogger)
+
 	closers = append(closers, auditService)
 
 	generator := service.NewStringGenerator()
@@ -213,7 +201,7 @@ func prepareDI(done context.Context, cfg *config.Config, traceLogger *zerolog.Lo
 		return nil, fmt.Errorf("error initializing shortifier: %w", err)
 	}
 
-	h := handler.NewHandlers(shortifierService, store, auditService)
+	h := handler.NewHandlers(shortifierService, store, auditService, cfg)
 
 	return h, nil
 }

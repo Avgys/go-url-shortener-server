@@ -16,3 +16,9 @@ SELECT
   CAST(f.stored_short_url AS text) AS stored_short_url,
   CAST(f.retry AS boolean) AS retry
 FROM LATERAL public.store_batch_urls(sqlc.arg(long_urls)::text[], sqlc.arg(short_urls)::text[], sqlc.arg(user_id)) AS f(short_url, long_url, stored_short_url, retry);
+
+-- name: GetURLsStats :one
+SELECT
+  COUNT(DISTINCT long_url)::bigint AS unique_long_url_count,
+  COUNT(DISTINCT user_id)::bigint AS unique_user_id_count
+FROM urls;

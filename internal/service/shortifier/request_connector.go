@@ -1,6 +1,7 @@
 package shortifier
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"go-url-shortener/internal/model/requests"
@@ -15,9 +16,9 @@ import (
 
 // ShortenURL shortens a single URL using the authenticated user from r's context.
 // It publishes an audit event for each stored long URL.
-func (s *Shortifier) ShortenURL(url string, traceLogger *zerolog.Logger, r *http.Request) (*responses.IndexedShortURL, error) {
+func (s *Shortifier) ShortenURL(ctx context.Context, url string, traceLogger *zerolog.Logger) (*responses.IndexedShortURL, error) {
 	batch := requests.ShortenBatchReq{requests.IndexedFullURL{FullURL: url}}
-	urls, err := s.ShortenBatch(batch, traceLogger, r)
+	urls, err := s.ShortenBatch(ctx, batch, traceLogger)
 
 	if err != nil {
 		return nil, err
@@ -28,9 +29,8 @@ func (s *Shortifier) ShortenURL(url string, traceLogger *zerolog.Logger, r *http
 
 // ShortenBatch shortens multiple URLs using the authenticated user from r's context.
 // It publishes an audit event per input URL after a successful store.
-func (s *Shortifier) ShortenBatch(batch requests.ShortenBatchReq, traceLogger *zerolog.Logger, r *http.Request) (*responses.ShortenBatchResp, error) {
+func (s *Shortifier) ShortenBatch(ctx context.Context, batch requests.ShortenBatchReq, traceLogger *zerolog.Logger) (*responses.ShortenBatchResp, error) {
 
-	ctx := r.Context()
 	claims, err := auth.GetFromContext(ctx)
 
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *Shortifier) ShortenBatch(batch requests.ShortenBatchReq, traceLogger *z
 	}
 
 	serviceReq := &ShortenBatchReq{URLs: batch, UserID: claims.UserID}
-	resultURL, err := s.ShortifyBatch(r.Context(), serviceReq, traceLogger)
+	resultURL, err := s.ShortifyBatch(ctx, serviceReq, traceLogger)
 
 	if err != nil {
 		if errors.Is(err, ErrCollision) {

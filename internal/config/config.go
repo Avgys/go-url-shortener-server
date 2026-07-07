@@ -16,6 +16,8 @@ type Config struct {
 	AuditFile          string                `env:"AUDIT_FILE" json:"audit_file,omitempty"`
 	AuditURL           string                `env:"AUDIT_URL" json:"audit_url,omitempty"`
 	HttpsEnabled       bool                  `env:"ENABLE_HTTPS" json:"enable_https,omitempty"`
+	TrustedSubnet      string                `env:"TRUSTED_SUBNET" json:"trusted_subnet,omitempty"`
+	GRPCPort           int                   `env:"GRPC_PORT" json:"grpc_port,omitempty"`
 }
 
 func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
@@ -45,6 +47,7 @@ func GetConfig(args []string, traceLogger *zerolog.Logger) (*Config, error) {
 		Str("AuditFile", cfg.AuditFile).
 		Str("AuditURL", cfg.AuditURL).
 		Bool("HttpsEnabled", cfg.HttpsEnabled).
+		Int("GRPCPort", cfg.GRPCPort).
 		Send()
 
 	return cfg, nil
@@ -60,6 +63,8 @@ func getDefaultConfig() *Config {
 	cfg.AuditFile = ""
 	cfg.AuditURL = ""
 	cfg.HttpsEnabled = false
+	cfg.GRPCPort = 3200
+	cfg.TrustedSubnet = "127.0.0.0/8"
 
 	return &cfg
 }

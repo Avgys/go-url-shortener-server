@@ -83,6 +83,25 @@ func (q *Queries) GetURLsByUserID(ctx context.Context, userID pgtype.Int8) ([]Ge
 	return items, nil
 }
 
+const getURLsStats = `-- name: GetURLsStats :one
+SELECT
+  COUNT(DISTINCT long_url)::bigint AS unique_long_url_count,
+  COUNT(DISTINCT user_id)::bigint AS unique_user_id_count
+FROM urls
+`
+
+type GetURLsStatsRow struct {
+	UniqueLongUrlCount int64
+	UniqueUserIDCount  int64
+}
+
+func (q *Queries) GetURLsStats(ctx context.Context) (GetURLsStatsRow, error) {
+	row := q.db.QueryRow(ctx, getURLsStats)
+	var i GetURLsStatsRow
+	err := row.Scan(&i.UniqueLongUrlCount, &i.UniqueUserIDCount)
+	return i, err
+}
+
 const storeBatchUrls = `-- name: StoreBatchUrls :many
 SELECT
   CAST(f.short_url AS text) AS short_url,
